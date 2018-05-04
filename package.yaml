@@ -1,0 +1,46 @@
+name:                reliable-download
+version:             0.1.0.0
+synopsis:            provide reliable download service via HTTP
+description:         reliable-download web application and cli tool
+homepage:            "https://github.com/sylecn/reliable-download#readme"
+bug-reports:         "https://github.com/sylecn/reliable-download/issues"
+license:             GPL-3
+author:              Yuanle Song
+maintainer:          sylecn@gmail.com
+copyright:           "Copyright: (c) 2018 Yuanle Song"
+category:            Utilities
+extra-source-files:
+- README.md
+
+default-extensions:
+  - OverloadedStrings
+
+dependencies:
+  - base >= 4.7 && < 5
+  - scotty
+  - cryptohash
+  - bytestring
+  - text
+  - byteable
+  - aeson
+
+library:
+  source-dirs: src
+
+executables:
+  rd-api:
+    source-dirs:      api
+    main:             Main.hs
+    dependencies:
+    - reliable-download
+  rd:
+    source-dirs:      client
+    main:             Main.hs
+
+tests:
+  lib-test:
+    main: TestLib.hs
+    source-dirs: test
+    dependencies:
+    - reliable-download
+    - HUnit

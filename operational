@@ -1,0 +1,64 @@
+* COMMENT -*- mode: org -*-
+#+Date: 2018-05-04
+Time-stamp: <2018-05-05>
+#+STARTUP: content
+* notes                                                               :entry:
+** 2018-05-05 sol/hpack: hpack: An alternative format for Haskell packages
+https://github.com/sol/hpack
+** 2018-05-04 make hoogle work in current project
+stack build hoogle
+requires building 54 pkgs. lots of dependencies.
+DONE hoogle-5.0.14
+
+- build local database
+  stack hoogle
+
+  DONE 64 pkgs
+
+  Updating Haddock index for snapshot packages in
+  /home/sylecn/.stack/snapshots/x86_64-linux-nopie/lts-10.3/8.2.2/doc/index.html
+
+- stack hoogle html
+  now it works.
+
+- info: file size
+  53M	.stack-work/
+
+** 2018-05-05 HUnit: A unit testing framework for Haskell
+https://hackage.haskell.org/package/HUnit
+** 2018-05-05 Web.Scotty
+https://www.stackage.org/haddock/lts-11.7/scotty-0.11.1/Web-Scotty.html
+html :: Text -> ActionM ()
+
+scotty/examples at master · scotty-web/scotty
+https://github.com/scotty-web/scotty/tree/master/examples
+
+** 2018-05-04 for project notes, see GTD.org id002
+* later                                                               :entry:
+* current                                                             :entry:
+** 
+** 2018-05-04 check whether haskell is viable for this project.
+In static file hosting nginx reverse proxy /rd/ to rd application server.
+
+location /rd/ {
+    http_proxy xxx;
+    ...
+}
+
+- make these two calls work:
+  - GET /rd/bigfile
+  - GET /rd/path/to/bigfile
+
+- redis client
+- DONE calculate sha1sum in consistent RAM.
+  curl http://localhost:8082/
+  just scotty 6.6MiB
+
+  curl http://localhost:8082/debug/t1
+  this calculate sha1sum for a 517MiB file.
+  11.2MiB
+  it's okay. doesn't buffer the whole file in RAM.
+- 
+
+* done                                                                :entry:
+* wontfix                                                             :entry:
