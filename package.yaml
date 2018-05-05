@@ -21,6 +21,7 @@ dependencies:
   - wai
   - scotty
   - cryptohash
+  - hedis
   - bytestring
   - text
   - byteable

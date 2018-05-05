@@ -64,6 +64,79 @@ https://github.com/scotty-web/scotty/tree/master/examples
 - 
 
 * later                                                               :entry:
+** 2018-05-05 utf-8 character not working well in path.
+curl http://localhost:8082/rd/%E4%B8%AD%E6%96%87%E6%96%87%E4%BB%B6%E5%90%8D.rar
+{"ok":true,"path":"中"}
+only first character is in path key.
+
+- a scotty bug?
+  full_path is also wrong. not regexp problem.
+- well, since this encoding doesn't work well. I think I will pass the path in
+  json body instead of in the URL.
+
+  I don't need it in the URL anyway. download must be handled by a rd client.
+- search: haskell scotty path utf-8 character
+
+  check source code.
+  Web.Scotty.Route
+  https://www.stackage.org/haddock/lts-11.7/scotty-0.11.1/src/Web.Scotty.Route.html
+  matchRoute
+  path req
+
+  req :: Request
+  path :: Request -> T.Text
+  path = T.fromStrict . TS.cons '/' . TS.intercalate "/" . pathInfo
+
+  pathInfo is defined in Network.Wai!
+  so problem is not in scotty. probably in Warp.
+
+- check Network.Wai.pathInfo source code
+  https://www.stackage.org/haddock/lts-11.7/wai-3.2.1.2/Network-Wai.html#v:pathInfo
+  data Request = Request {
+      ,  pathInfo             :: [Text]
+  }
+
+  check how warp fill this field.
+  Network.Wai.Handler.Warp.Request
+  https://www.stackage.org/haddock/lts-11.7/warp-3.2.22/src/Network.Wai.Handler.Warp.Request.html
+  import qualified Network.HTTP.Types as H
+
+  hdrlines <- headerLines firstRequest src
+  (method, unparsedPath, path, query, httpversion, hdr) <- parseHeaderLines hdrlines
+  pathInfo = H.decodePathSegments path
+
+  H.decodePathSegments doesn't have problem. I already tested it.
+
+- check parseHeaderLines
+  https://www.stackage.org/haddock/lts-11.7/warp-3.2.22/src/Network.Wai.Handler.Warp.RequestHeader.html#parseHeaderLines
+
+  try parse this line using warp's code:
+  GET /rd/%E4%B8%AD%E6%96%87%E6%96%87%E4%BB%B6%E5%90%8D.rar HTTP/1.1
+
+  stack repl
+  import Network.Wai.Handler.Warp.RequestHeader (parseHeaderLines)
+
+  :l ~/fromsource/wai/warp/Network/Wai/Handler/Warp/RequestHeader
+  too many dependencies
+
+  try build warp in it's source dir.
+  cd ~/fromsource/wai/warp
+  stack build
+  lts-10.0 plan.
+  96 pkgs to build.
+
+- problems
+  - can't find warp source code.
+    warp is inside wai repo.
+    https://github.com/yesodweb/wai
+
+    cloned to ~/fromsource/wai/
+
+    just import Network.Wai.Handler.Warp.Internal
+    it includes every module. but it doesn't export that function.
+
+  - search: haskell how to use non exported function
+
 ** 2018-05-05 should rd-api serve the static file itself?
 that way you don't need to tell rd-server the web root dir.
 - normally
@@ -78,21 +151,7 @@ that way you don't need to tell rd-server the web root dir.
 
 * current                                                             :entry:
 ** 
-** 2018-05-05 utf-8 character not working well.
-curl http://localhost:8082/rd/%E4%B8%AD%E6%96%87%E6%96%87%E4%BB%B6%E5%90%8D.rar
-{"ok":true,"path":"中"}
-only first character is in path key.
-
-- a scotty bug?
-  full_path is also wrong. not regexp problem.
-- well, since this encoding doesn't work well. I think I will pass the path in
-  json body instead of in the URL.
-
-  I don't need it in the URL anyway. download must be handled by a rd client.
-- search: haskell scotty path utf-8 character
-
-  check source code.
-
+* done                                                                :entry:
 ** 2018-05-04 check whether haskell is viable for this project.
 In static file hosting nginx reverse proxy /rd/ to rd application server.
 
@@ -105,7 +164,7 @@ location /rd/ {
   - GET /rd/bigfile
   - GET /rd/path/to/bigfile
 
-- redis client
+- DONE redis client
 - DONE calculate sha1sum in consistent RAM.
   curl http://localhost:8082/
   just scotty 6.6MiB
@@ -114,9 +173,11 @@ location /rd/ {
   this calculate sha1sum for a 517MiB file.
   11.2MiB
   it's okay. doesn't buffer the whole file in RAM.
-- 
+- haskell is viable for this project.
 
-* done                                                                :entry:
+** 2018-05-05 redis client
+- when to create the connection pool?
+  in main
 ** 2018-05-05 how to test scotty web api
 wai-test: Unit test framework (built on HUnit) for WAI applications. (deprecated)
 http://hackage.haskell.org/package/wai-test

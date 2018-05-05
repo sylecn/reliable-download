@@ -7,13 +7,15 @@ import Test.Hspec.Wai
 import Network.Wai.Test
 import Network.HTTP.Types (status200, encodePathSegments, decodePathSegments)
 import Data.Binary.Builder (toLazyByteString)
+import Network.Wai (Application)
 
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Text as T
 import qualified Data.HashMap.Strict as H
+import qualified Database.Redis as R
 
-import App (waiApp)
+import App (mkWaiApp)
 
 -- | decode response as json object.
 jsonObject :: SResponse -> Maybe J.Object
@@ -51,6 +53,11 @@ spec = do
 -- | like get, but accept path in [T.Text] format and do url safe encoding.
 getPath :: [T.Text] -> WaiSession SResponse
 getPath = get . LB.toStrict . toLazyByteString . encodePathSegments
+
+waiApp :: IO Application
+waiApp = do
+   conn <- R.connect R.defaultConnectInfo
+   mkWaiApp conn
 
 apiSpec :: Spec
 apiSpec = with waiApp $ do
