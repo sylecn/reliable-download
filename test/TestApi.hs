@@ -5,8 +5,7 @@
 import Test.Hspec
 import Test.Hspec.Wai
 import Network.Wai.Test
-import Network.HTTP.Types.Status
-import Network.HTTP.Types.URI (encodePathSegments, decodePathSegments)
+import Network.HTTP.Types (status200, encodePathSegments, decodePathSegments)
 import Data.Binary.Builder (toLazyByteString)
 
 import qualified Data.Aeson as J
