@@ -3,6 +3,34 @@
 Time-stamp: <2018-05-05>
 #+STARTUP: content
 * notes                                                               :entry:
+** 2018-05-05 it's impossible to do logging easily in haskell.
+two problems
+
+- no way to pass around the logger engine/configuration without a log monad in
+  your stack. since you may want to log anywhere, you have to change all the
+  data types.
+
+  This requires you know monad and monad transformer really well.
+
+  You can't just get a logger from "global env" like in other language.
+
+- no easy way to format a string as Data.Text.Text.
+  both printf and Text.Format.format has too much noise when doing logging.
+
+  I need to write:
+  runLogT "Main" logger $ do
+    logInfo_ $ LT.toStrict $ TF.format "will listen on {}:{}" ((host config), (port config))
+
+  I would like to write:
+  logInfo_ $ format "will listen on {}:{}" (host config) (port config)
+
+  try https://hackage.haskell.org/package/formatting
+  Formatting in Haskell
+  https://chrisdone.com/posts/formatting
+
+  logInfo_ $ sformat ("will listen on " % string % ":" % int) (host config) (port config)
+  // this is better.
+
 ** 2018-05-05 writing tests in hspec
 - Test WAI application using hspec
   hspec/hspec-wai: Helpers to test WAI application with Hspec
@@ -64,6 +92,57 @@ https://github.com/scotty-web/scotty/tree/master/examples
 - 
 
 * later                                                               :entry:
+** 2018-05-05 hosting static file via warp?
+- try it. it makes development easier.
+- make sure Range header is supported.
+- 
+
+** 2018-05-05 add logging support
+- hslogger
+  http://hackage.haskell.org/package/hslogger-1.2.10/docs/System-Log-Logger.html
+  http://hackage.haskell.org/package/hslogger
+
+  doesn't support printf style param?
+- How do I do logging in Haskell? - Stack Overflow
+  https://stackoverflow.com/questions/6310961/how-do-i-do-logging-in-haskell
+  says hslogger is not good.
+  slow and not extensible.
+- logger
+  http://hackage.haskell.org/package/logger-0.1.0.2
+  not maintained anymore?
+  dependencies requires base <=4.9
+  lts-10.3 has base 4.10.1.0
+
+- check pkg list.
+  https://www.stackage.org/lts-10.3
+
+- fast-logger 2.4.10
+  kazu-yamamoto/logger: A fast logging system for Haskell
+  https://github.com/kazu-yamamoto/logger
+
+  tinylog :: Stackage Server
+  https://www.stackage.org/lts-10.3/package/tinylog-0.14.0
+  Simplistic logging using fast-logger.
+
+- log-base :: Stackage Server
+  https://www.stackage.org/package/log-base
+  Structured logging solution (base package) https://github.com/scrive/log
+
+- try log-base
+  it supports stdout, ES, pg.
+  it supports lts-11.x
+  it supports log levels.
+
+** 2018-05-05 allow config app at runtime.
+via env var and command line parameter.
+
+- HOST
+- PORT
+- REDIS_HOST
+- REDIS_PORT
+- WEB_ROOT    web root dir, HTTP Path will be relative to this dir.
+- 
+
 ** 2018-05-05 utf-8 character not working well in path.
 curl http://localhost:8082/rd/%E4%B8%AD%E6%96%87%E6%96%87%E4%BB%B6%E5%90%8D.rar
 {"ok":true,"path":"中"}
@@ -151,6 +230,37 @@ that way you don't need to tell rd-server the web root dir.
 
 * current                                                             :entry:
 ** 
+** 2018-05-05 calculate sha1sum for blocks using a thread pool.
+** 2018-05-05 write the main logic of creating block metadata.
+then make it work with a thread pool with a single thread.
+
+env WEB_ROOT=/home/sylecn/persist/cache stack exec rd-api
+
+curl -XGET http://localhost:8082/rd/ideaIC-2018.1.tar.gz
+
+this should return json of the block metadata.
+
+- block metadata looks like this:
+  GET /rd/bigfile
+  #+BEGIN_SRC sh
+    {"ok": true,
+     "block_size": "2MiB",    # this is a fixed value.
+     "file_size": xxxx,       # file size in bytes
+     "block_count": 24,
+     "blocks": [
+             [0, 0, 2097151, block1_sha1sum],
+             [1, 2097152, 4194303, block2_sha1sum],
+             ...
+             [N, start, end, blockN_sha1sum]
+     ]}
+  #+END_SRC
+
+- problems
+  - it hangs.
+    curl -XGET http://localhost:8082/rd/ideaIC-2018.1.tar.gz
+    curl -XGET http://localhost:8082/test/rd/ideaIC-2018.1.tar.gz
+    fixed.
+
 * done                                                                :entry:
 ** 2018-05-04 check whether haskell is viable for this project.
 In static file hosting nginx reverse proxy /rd/ to rd application server.

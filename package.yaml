@@ -19,6 +19,7 @@ default-extensions:
 dependencies:
   - base >= 4.7 && < 5
   - wai
+  - warp
   - scotty
   - cryptohash
   - hedis
@@ -26,6 +27,11 @@ dependencies:
   - text
   - byteable
   - aeson
+  - network
+  - log-base
+  - formatting
+  - filepath
+  - unix
 
 library:
   source-dirs: src
