@@ -1,3 +1,5 @@
+module TestLib (allTests) where
+
 import RD.Lib (sha1sumOnBytes)
 
 import System.Exit
@@ -13,11 +15,3 @@ test_sha1sumOnBytes =
 
 allTests = TestList [test_dumb
                     ,test_sha1sumOnBytes]
-
-main :: IO a
-main = do
-  counts <- runTestTT allTests
-  if errors counts + failures counts > 0 then
-      exitFailure
-  else
-      exitSuccess

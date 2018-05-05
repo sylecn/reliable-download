@@ -14,9 +14,11 @@ extra-source-files:
 
 default-extensions:
   - OverloadedStrings
+  - ScopedTypeVariables
 
 dependencies:
   - base >= 4.7 && < 5
+  - wai
   - scotty
   - cryptohash
   - bytestring
@@ -38,8 +40,22 @@ executables:
     main:             Main.hs
 
 tests:
+  api-test:
+    main: TestApi.hs
+    source-dirs: test
+    dependencies:
+    - reliable-download
+    - HUnit
+    - hspec
+    - hspec-wai
+    - http-types
+    - wai-extra
+    - unordered-containers
+    - binary
   lib-test:
-    main: TestLib.hs
+    main: test.hs
+    other-modules:
+      - TestLib
     source-dirs: test
     dependencies:
     - reliable-download
