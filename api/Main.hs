@@ -4,6 +4,7 @@ import Network.Socket.Internal (PortNumber)
 import Data.String (fromString)
 import System.Environment (lookupEnv)
 import Data.Monoid ((<>))
+import Control.Concurrent.Chan
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
@@ -14,8 +15,9 @@ import Log
 import Log.Backend.StandardOutput
 import qualified Database.Redis as R
 
-import App (mkApp)
 import Config
+import App (mkApp)
+import Worker (startWorkers)
 
 -- TODO use a proper config lib.
 -- TODO support other env variables.
@@ -26,9 +28,8 @@ updateRDConfigFromEnv config = do
           case webroot of
             Just dir -> config {webRoot=dir}
             Nothing -> config
-  withSimpleStdOutLogger $ \logger -> do
-    runLogT "Main" logger $ do
-      logInfo_ $ "webRoot is " <> T.pack (webRoot config)
+  withSimpleStdOutLogger $ \logger -> runLogT "Main" logger $
+    logInfo_ $ "webRoot is " <> T.pack (webRoot config)
   return newConfig
 
 main :: IO ()
@@ -36,12 +37,14 @@ main = withSimpleStdOutLogger $ \logger -> do
   config <- updateRDConfigFromEnv defaultRDConfig
   conn <- R.checkedConnect $ R.defaultConnectInfo {
             R.connectHost=redisHost config
-          , R.connectPort=R.PortNumber $ (fromIntegral (redisPort config) :: PortNumber)
+          , R.connectPort=R.PortNumber (fromIntegral (redisPort config) :: PortNumber)
           }
+  fileChan <- newChan
   let runtimeConfig = RDRuntimeConfig { config=config
                                       , redisConn=conn
-                                      }
-  runLogT "Main" logger $ do
+                                      , fileChan=fileChan}
+  startWorkers runtimeConfig
+  runLogT "Main" logger $
     logInfo_ $ sformat ("will listen on " % string % ":" % int) (host config) (port config)
   let opts = Options { verbose=0
                      , settings=warpSettings

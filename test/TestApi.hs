@@ -9,6 +9,7 @@ import Network.HTTP.Types (status200, encodePathSegments, decodePathSegments)
 import Data.Binary.Builder (toLazyByteString)
 import Network.Wai (Application)
 import System.FilePath
+import Control.Concurrent.Chan
 
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Lazy as LB
@@ -74,8 +75,10 @@ getPath = get . LB.toStrict . toLazyByteString . encodePathSegments
 waiApp :: IO Application
 waiApp = do
    conn <- R.connect R.defaultConnectInfo
+   fileChan <- newChan
    mkWaiApp RDRuntimeConfig { config=defaultRDConfig
-                            , redisConn=conn}
+                            , redisConn=conn
+                            , fileChan=fileChan}
 
 apiSpec :: Spec
 apiSpec = with waiApp $ do

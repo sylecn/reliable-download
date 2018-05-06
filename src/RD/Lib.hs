@@ -10,7 +10,7 @@ import Crypto.Hash
 
 -- | get sha1sum hex string for given bytes
 sha1sumOnBytes :: LB.ByteString -> LB.ByteString
-sha1sumOnBytes bytes = LB.fromStrict $ digestToHexByteString $ (hashlazy bytes :: Digest SHA1)
+sha1sumOnBytes bytes = LB.fromStrict $ digestToHexByteString (hashlazy bytes :: Digest SHA1)
 
 -- | calculate sha1sum for given file
 sha1sum :: LT.Text -> IO LT.Text

@@ -3,6 +3,71 @@
 Time-stamp: <2018-05-06>
 #+STARTUP: content
 * notes                                                               :entry:
+** 2018-05-05 write the main logic of creating block metadata.
+then make it work with a thread pool with a single thread.
+
+env WEB_ROOT=/home/sylecn/persist/cache stack exec rd-api
+
+curl -XGET http://localhost:8082/rd/ideaIC-2018.1.tar.gz
+
+this should return json of the block metadata.
+
+- block metadata looks like this:
+  GET /rd/bigfile
+  #+BEGIN_SRC sh
+    {"ok": true,
+     "block_size": "2MiB",    # this is a fixed value.
+     "file_size": xxxx,       # file size in bytes
+     "block_count": 24,
+     "blocks": [
+             [0, 0, 2097151, block1_sha1sum],
+             [1, 2097152, 4194303, block2_sha1sum],
+             ...
+             [N, start, end, blockN_sha1sum]
+     ]}
+  #+END_SRC
+
+** 2018-05-06 calculate sha1sum for blocks using a thread pool. design try 2.
+- data protocol via redis.
+  hset <filepath>_blockSize blockId sha1sum
+
+  set <filepath>_blockSize_status working|done
+
+- worker pool is there for calculating all blocks for one file.
+
+         fileQueue
+  Main ------------> fileWorker
+
+  GET /rd/file
+  if file status is None, push file to fileQueue.
+  do normal logic.
+
+  fileWorker:
+  fetch file from fileQueue.
+  start working on blocks one by one.
+  if block already cached in redis, skip it.
+  when all done, set <filepath>_blockSize_status done.
+
+- this works and is easy to understand.
+  WIP info is also kept in redis for each file's block.
+
+- works on first try. excellent.
+
+- problems
+  - how to fail when redis hget or hset fail?
+    just return False
+    if some block fail, set status to error.
+    next time a GET /rd/file, it will trigger the queue again.
+
+    a cron job can also trigger a run.
+  - mapM how to skip rest when some action failed?
+
+    If there is a redis error halfway during calculation, I don't want to
+    calculate the rest sha1sum, because the result can't be stored.
+  - 
+
+** 2018-05-06 how to run hlint
+stack exec hlint -- src api
 ** 2018-05-05 it's impossible to do logging easily in haskell.
 two problems
 
@@ -230,63 +295,10 @@ that way you don't need to tell rd-server the web root dir.
 
 * current                                                             :entry:
 ** 
-** 2018-05-06 calculate sha1sum for blocks using a thread pool. design try 2.
-- data protocol via redis.
-  hset <filepath>_blockSize blockId sha1sum
-
-  set <filepath>_blockSize_status working|done
-
-- worker pool is there for calculating all blocks for one file.
-
-         fileQueue
-  Main ------------> fileWorker
-
-  GET /rd/file
-  if file status is None, push file to fileQueue.
-  do normal logic.
-
-  fileWorker:
-  fetch file from fileQueue.
-  start working on blocks one by one.
-  if block already cached in redis, skip it.
-  when all done, set <filepath>_blockSize_status done.
-
-- this works and is easy to understand.
-  WIP info is also kept in redis for each file's block.
-
-- 
-
-** 2018-05-05 write the main logic of creating block metadata.
-then make it work with a thread pool with a single thread.
-
-env WEB_ROOT=/home/sylecn/persist/cache stack exec rd-api
-
-curl -XGET http://localhost:8082/rd/ideaIC-2018.1.tar.gz
-
-this should return json of the block metadata.
-
-- block metadata looks like this:
-  GET /rd/bigfile
-  #+BEGIN_SRC sh
-    {"ok": true,
-     "block_size": "2MiB",    # this is a fixed value.
-     "file_size": xxxx,       # file size in bytes
-     "block_count": 24,
-     "blocks": [
-             [0, 0, 2097151, block1_sha1sum],
-             [1, 2097152, 4194303, block2_sha1sum],
-             ...
-             [N, start, end, blockN_sha1sum]
-     ]}
-  #+END_SRC
-
-- problems
-  - it hangs.
-    curl -XGET http://localhost:8082/rd/ideaIC-2018.1.tar.gz
-    curl -XGET http://localhost:8082/test/rd/ideaIC-2018.1.tar.gz
-    fixed.
-
 * done                                                                :entry:
+** 2018-05-06 integrate hlint
+stack install hlint
+
 ** 2018-05-04 check whether haskell is viable for this project.
 In static file hosting nginx reverse proxy /rd/ to rd application server.
 

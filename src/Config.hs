@@ -1,6 +1,12 @@
 module Config where
 
 import qualified Database.Redis as R
+import Control.Concurrent.Chan
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as Char8
+import Data.Monoid ((<>))
+
+import Type
 
 data RDConfig = RDConfig {
       host :: String
@@ -8,11 +14,13 @@ data RDConfig = RDConfig {
     , redisHost :: String
     , redisPort :: Int
     , webRoot :: FilePath
+    , fileWorkerCount :: Int
     } deriving (Show)
 
 data RDRuntimeConfig = RDRuntimeConfig {
       config :: RDConfig
     , redisConn :: R.Connection
+    , fileChan :: Chan FillBlockParam
     }
 
 defaultRDConfig :: RDConfig
@@ -22,4 +30,18 @@ defaultRDConfig = RDConfig {
                   , redisHost = "127.0.0.1"
                   , redisPort = 6379
                   , webRoot = "/nonexistent"
+                  , fileWorkerCount = 2
                   }
+
+-- | the redis hash key used to store cached sha1sum for given FillBlockParam
+blockSha1sumHashKey :: FillBlockParam -> B.ByteString
+blockSha1sumHashKey fbp = Char8.pack (fbpFilepath fbp) <> "_" <> (Char8.pack . show) (fbpBlockSize fbp)
+
+-- | the redis hash key sub key, used to store the sha1sum for that blockId.
+blockIdKey :: BlockID -> B.ByteString
+blockIdKey = Char8.pack . show
+
+-- | the redis string key used to track whether this file and blockSize is
+-- new|working|done.
+fileStatusKey :: FillBlockParam -> B.ByteString
+fileStatusKey fbp = blockSha1sumHashKey fbp <> "_status"
