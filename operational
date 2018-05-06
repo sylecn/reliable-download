@@ -157,11 +157,6 @@ https://github.com/scotty-web/scotty/tree/master/examples
 - 
 
 * later                                                               :entry:
-** 2018-05-05 hosting static file via warp?
-- try it. it makes development easier.
-- make sure Range header is supported.
-- 
-
 ** 2018-05-05 add logging support
 - hslogger
   http://hackage.haskell.org/package/hslogger-1.2.10/docs/System-Log-Logger.html
@@ -295,7 +290,52 @@ that way you don't need to tell rd-server the web root dir.
 
 * current                                                             :entry:
 ** 
+** 2018-05-06 write client side tool to actually do the download.
+- make this work:
+  env WEB_ROOT=/home/sylecn/persist/cache stack exec rd-api
+
+  rd http://localhost:8082/ideaIC-2018.1.tar.gz
+- 
+
 * done                                                                :entry:
+** 2018-05-05 hosting static file via warp?
+- try it. it makes development easier.
+- make sure Range header is supported.
+- 2018-05-06 wai-app-static
+  try it.
+
+  settingsFdCacheDuration default is 0 
+
+- how to mount app at /rd/ and /static/?
+- use WAI middleware.
+  this can serve / and /rd/. even better.
+
+  wai-middleware-static
+  doesn't support file listing?
+  only support the current directory.
+
+  try it.
+  cd d/t2
+  curl http://localhost:8082/sdkman.sh
+  it works. and it supports Range header.
+  curl -vvv -o t1.out -r0-1 http://localhost:8082/sdkman.sh
+  curl -vvv -o t2.out -r0-9 http://localhost:8082/sdkman.sh
+  it works.
+
+  is file listing supported?
+  curl http://localhost:8082/
+  404, so no.
+
+- the wai-middleware-static is only 274 lines.
+  https://github.com/scotty-web/wai-middleware-static/blob/master/Network/Wai/Middleware/Static.hs
+
+- wai-app-static is only 288 lines.
+  https://github.com/yesodweb/wai/blob/master/wai-app-static/Network/Wai/Application/Static.hs
+
+- to mount app at different url, it should be easy to just write a middleware.
+- let me just use wai-middleware-static without dir listing for now.
+
+** 2018-05-06 do I need to close handle when done?
 ** 2018-05-06 integrate hlint
 stack install hlint
 

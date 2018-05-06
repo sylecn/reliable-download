@@ -20,6 +20,9 @@ dependencies:
   - base >= 4.7 && < 5
   - wai
   - warp
+  # - wai-app-static
+  - wai-middleware-static
+  - directory
   - scotty
   - cryptohash
   - hedis

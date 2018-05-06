@@ -5,18 +5,21 @@ import Data.String (fromString)
 import System.Environment (lookupEnv)
 import Data.Monoid ((<>))
 import Control.Concurrent.Chan
+import System.Directory (setCurrentDirectory)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
 import Web.Scotty
-import Network.Wai.Handler.Warp (defaultSettings, setHost, setPort)
+import Network.Wai.Handler.Warp
 import Formatting
 import Log
 import Log.Backend.StandardOutput
+-- import Network.Wai.Application.Static
+import Network.Wai.Middleware.Static
 import qualified Database.Redis as R
 
 import Config
-import App (mkApp)
+import App (mkWaiApp)
 import Worker (startWorkers)
 
 -- TODO use a proper config lib.
@@ -46,10 +49,14 @@ main = withSimpleStdOutLogger $ \logger -> do
   startWorkers runtimeConfig
   runLogT "Main" logger $
     logInfo_ $ sformat ("will listen on " % string % ":" % int) (host config) (port config)
-  let opts = Options { verbose=0
-                     , settings=warpSettings
-                     }
-          where
-            warpSettings = setPort (port config)
-                           (setHost (fromString $ host config) defaultSettings)
-  scottyOpts opts $ mkApp runtimeConfig
+  let warpSettings = ( setFdCacheDuration 10
+                     . setFileInfoCacheDuration 10
+                     . setPort (port config)
+                     . setHost (fromString $ host config)) defaultSettings
+  rdApi <- mkWaiApp runtimeConfig
+  -- let staticApp = staticApp $ defaultFileServerSettings $ webRoot config
+  -- runSettings warpSettings rdApi
+  setCurrentDirectory (webRoot config)    -- static app only support serving
+                                          -- from PWD
+  let app = static rdApi
+  runSettings warpSettings app

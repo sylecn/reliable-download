@@ -1,7 +1,7 @@
 module Worker (startWorkers) where
 
 import Control.Concurrent.Chan
-import System.IO (IOMode(ReadMode))
+import System.IO (IOMode(ReadMode), hClose)
 import GHC.IO.Handle (Handle, hTell, hSeek, SeekMode(AbsoluteSeek))
 import GHC.IO.Handle.FD (openBinaryFile)
 import Control.Monad (when, replicateM_)
@@ -38,7 +38,7 @@ fileWorker runtimeConfig = do
     Right _ -> do
       putStrLn $ "set file status to " <> show resultStatus <> " for " <> filepath
       putStrLn $ "file handling done for " <> filepath
-  -- GET /rd/file should enqueue if status is error.
+  hClose handle
   return ()
     where
       -- | calculate sha1 for a single block. return True on success.
