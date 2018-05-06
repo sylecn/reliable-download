@@ -32,6 +32,7 @@ dependencies:
   - formatting
   - filepath
   - unix
+  - unordered-containers
 
 library:
   source-dirs: src

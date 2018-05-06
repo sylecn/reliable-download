@@ -3,6 +3,9 @@ module App (mkApp, mkWaiApp, genBlocks) where
 import Control.Monad.IO.Class (liftIO)
 import Data.Either (fromRight)
 import Data.Monoid ((<>))
+import Data.Text.Encoding (decodeUtf8)
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as Char8
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
@@ -12,6 +15,7 @@ import Data.Aeson (Value(..), toJSON, object, (.=))
 import System.FilePath (combine)
 import System.Posix.Files (getFileStatus, fileSize)
 import qualified Database.Redis as R
+import qualified Data.HashMap.Strict as M
 
 import Config
 import RD.Lib (sha1sum)
@@ -39,6 +43,39 @@ genBlocks fileSize blockSize = if fileSize == 0 then
         else
             reverse accumulator
 
+data FillBlockParam = FillBlockParam {
+      fbpFilepath :: FilePath
+    , fbpBlockSize :: Integer
+    , fbpFileSize :: Integer
+    , fbpBlocks :: [Block]}
+
+-- | the redis hash key used to store cached sha1sum for given FillBlockParam
+blockSha1sumHashKey :: FillBlockParam -> B.ByteString
+blockSha1sumHashKey fbp = Char8.pack (fbpFilepath fbp) <> "_" <> (Char8.pack . show) (fbpBlockSize fbp)
+
+-- | the redis hash key sub key, used to store the sha1sum for that blockId.
+blockIdKey :: BlockID -> B.ByteString
+blockIdKey = Char8.pack . show
+
+-- | fill block sha1sum, if sha1sum is not ready yet, put "pending" there.
+fillSha1sum :: RDRuntimeConfig -> FillBlockParam -> IO [BlockWithChecksum]
+fillSha1sum runtimeConfig fbp = do
+  let filepath = fbpFilepath fbp
+      blockSize = fbpBlockSize fbp
+      hashKey = blockSha1sumHashKey fbp
+  redisReply <- R.runRedis (redisConn runtimeConfig) $ R.hgetall hashKey
+  case redisReply of
+    Left reply -> do
+      putStrLn $ "redis hgetall " <> show hashKey <> " failed: " <> show reply
+      return $ map fillBlock (fbpBlocks fbp) where
+        fillBlock (blockId, start, end) = (blockId, start, end, "pending")
+    Right blockIdSha1sumAlist -> do
+      putStrLn $ "redis hgetall " <> show hashKey <> " ok"
+      return $ map fillBlock (fbpBlocks fbp) where
+        blockIdSha1sumMap = M.fromList blockIdSha1sumAlist
+        fillBlock :: Block -> BlockWithChecksum
+        fillBlock (blockId, start, end) = (blockId, start, end, decodeUtf8 $ M.lookupDefault "pending" (blockIdKey blockId) blockIdSha1sumMap)
+
 -- | given a redis connection pool, return a Scotty app.
 mkApp :: RDRuntimeConfig -> ScottyM ()
 mkApp runtimeConfig = do
@@ -54,11 +91,16 @@ mkApp runtimeConfig = do
         blockSizeInByte = 2097152    -- 2MiB
         blockCount = (fileSizeInByte - 1) `div` blockSizeInByte + 1
         blocks = genBlocks fileSizeInByte blockSizeInByte
+    blocksWithSha1sum <- liftIO $ fillSha1sum runtimeConfig $ FillBlockParam {
+                              fbpFilepath=filepath
+                            , fbpFileSize=fileSizeInByte
+                            , fbpBlockSize=blockSizeInByte
+                            , fbpBlocks=blocks}
     json $ object [("ok" .= True)
                   ,("block_size" .= ("2MiB" :: T.Text))
                   ,("file_size" .= fileSizeInByte)
                   ,("block_count" .= blockCount)
-                  ,("blocks" .= blocks)
+                  ,("blocks" .= blocksWithSha1sum)
                   ,("path" .= path)
                   ,("filepath" .= filepath)
                   ]

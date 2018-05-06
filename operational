@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2018-05-05>
+Time-stamp: <2018-05-06>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2018-05-05 it's impossible to do logging easily in haskell.
@@ -230,7 +230,32 @@ that way you don't need to tell rd-server the web root dir.
 
 * current                                                             :entry:
 ** 
-** 2018-05-05 calculate sha1sum for blocks using a thread pool.
+** 2018-05-06 calculate sha1sum for blocks using a thread pool. design try 2.
+- data protocol via redis.
+  hset <filepath>_blockSize blockId sha1sum
+
+  set <filepath>_blockSize_status working|done
+
+- worker pool is there for calculating all blocks for one file.
+
+         fileQueue
+  Main ------------> fileWorker
+
+  GET /rd/file
+  if file status is None, push file to fileQueue.
+  do normal logic.
+
+  fileWorker:
+  fetch file from fileQueue.
+  start working on blocks one by one.
+  if block already cached in redis, skip it.
+  when all done, set <filepath>_blockSize_status done.
+
+- this works and is easy to understand.
+  WIP info is also kept in redis for each file's block.
+
+- 
+
 ** 2018-05-05 write the main logic of creating block metadata.
 then make it work with a thread pool with a single thread.
 
@@ -330,3 +355,40 @@ I can use haskell fork though.
 yes. see Route Patterns.
 
 * wontfix                                                             :entry:
+** 2018-05-05 calculate sha1sum for blocks using a thread pool. design try 1.
+- data protocol via redis.
+  set <filepath>_blockSize_status working|done
+
+  hset <filepath>_blockSize blockId sha1sum
+
+  low level, for job queue.
+  lpush sha1_calculator_queue
+  {filepath: xxx,
+   block_size: xxx,
+   block: [block_id, start, end]}
+
+- I can get all when fill in sha1sum.
+  hgetall <filepath>_blockSize
+- thread communication design.
+
+  Main
+  create worker threads. worker threads wait to fetch item from jobQueue.
+  create jobQueue.
+
+  Worker
+  fetch item from jobQueue, when done, write redis hash key.
+  when error, put the item back. (catch exception).
+
+  GET /rd/file
+  if get <filepath>_blockSize_status is None, set status to "working", then
+  add blocks data to redis list.
+
+- should I calculate all blocks for one file in a single thread?
+  or allow multi-thread? allow multi-thread use CPU better.
+  use one thread allow better file cache usage.
+
+  allow multi-thread.
+
+// this design is too complex.
+redesign.
+
