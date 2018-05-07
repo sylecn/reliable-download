@@ -226,6 +226,20 @@ https://artyom.me/aeson
 ** 2018-05-06 optparse-applicative :: Stackage Server
 https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
 * later                                                               :entry:
+** 2018-05-07 loopUntilAllBlocksReady, how to track progress?
+use a thread pool to download blocks, print overall progress when some parts
+done or some time elapsed.
+
+- how to track progress?
+  I used mapM to fetch block.
+  results <- mapM (fetchBlockAsync opts rc url rdResp) newReadyBlocks
+
+  how to show some progress info?
+  I need a supervisor thread. and I need a shared data structure.
+
+  a mapM is not enough to do this.
+- 
+
 ** 2018-05-05 add logging support
 - hslogger
   http://hackage.haskell.org/package/hslogger-1.2.10/docs/System-Log-Logger.html
@@ -367,8 +381,32 @@ that way you don't need to tell rd-server the web root dir.
   should I use Control.Monad.Trans.Loop or just recursive call?
   I used recursive call.
 
-- use a thread pool to download blocks. print overall progress when some
+- DONE use a thread pool to download blocks. print overall progress when some
   parts done or some time elapsed.
+
+  thread pool
+
+  async
+  async-extra
+
+  mapConcurrentlyBounded
+
+  this is list local though. not a global pool.
+  maybe it's good enough for me?
+
+  what if one block keeps failing? it may block the new ready blocks.
+
+  It's easy to implement.
+  use a semaphore. when trying to fetch block, accquire a resource, fork a
+  thread and run it, wait for result. return the resource. Can use async to
+  implement the fork, it is said to handle exceptions better.
+
+  using QSem, I don't have a worker pool. I just create one when I need to do
+  some work. If a pool is necessary, need to create it before hand. like the
+  rd-api worker.
+
+  - MOVED how to track progress?
+
 - retry download if sha1sum verification failed.
 - catch all IO exceptions, including disk io, redis io, http io.
   fail at correct checkpoints.

@@ -1,7 +1,8 @@
-module Opts (RDOptions(..), argParser) where
+module Opts (RDOptions(..), argParser, RDClientRuntimeConfig(..)) where
 
 import qualified Data.Text as T
 import Data.Semigroup ((<>))
+import Control.Concurrent.QSem
 
 import Options.Applicative
 
@@ -11,8 +12,13 @@ data RDOptions = RDOptions
   , tempDir :: FilePath
   , outputDir :: FilePath
   , workerCount :: Int
+  , forceOverwrite :: Bool
   , verbose :: Bool
   , urls :: [T.Text] } deriving (Show)
+
+data RDClientRuntimeConfig = RDClientRuntimeConfig
+    { rdOptions :: RDOptions
+    , workerSem :: QSem }
 
 argParser :: Parser RDOptions
 argParser = RDOptions
@@ -53,5 +59,10 @@ argParser = RDOptions
       (  long "verbose"
       <> short 'v'
       <> help "show more debug message"
+      <> showDefault )
+  <*> switch
+      (  long "force"
+      <> short 'f'
+      <> help "overwrite exiting target file in OUTPUT_DIR"
       <> showDefault )
   <*> some (argument str (metavar "URL..."))

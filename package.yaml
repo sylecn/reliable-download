@@ -52,6 +52,8 @@ executables:
     main:             Main.hs
     dependencies:
     - reliable-download
+    ghc-options:
+    - -threaded
   rd:
     source-dirs:      client
     main:             Main.hs
@@ -60,6 +62,9 @@ executables:
     - optparse-applicative
     - http-conduit
     - http-client
+    - async
+    ghc-options:
+    - -threaded
 
 tests:
   all-tests:

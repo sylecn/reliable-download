@@ -5,13 +5,16 @@ import Data.Semigroup ((<>))
 import Control.Monad (guard, when, unless, forM_)
 import System.Directory (createDirectoryIfMissing
                         , doesFileExist
-                        , removeDirectoryRecursive)
+                        , removeDirectoryRecursive
+                        , removeFile)
 import Control.Exception
 import System.IO.Error
 import System.Exit
 import System.FilePath ((</>))
 import Data.Text.Encoding (decodeUtf8)
 import Control.Concurrent (threadDelay)
+import Control.Concurrent.QSem
+import Control.Concurrent.Async (async, wait)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.ByteString.Char8 as Char8
@@ -94,6 +97,17 @@ fetchBlock opts url rdResp blockWithChecksum = do
     else
         fetchBlockFromHttp opts (FetchBlockParam url filename blockWithChecksum blockTargetFile)
 
+-- | fetch block asynchronously using a worker pool
+fetchBlockAsync :: RDClientRuntimeConfig -> T.Text -> RDResponse -> BlockWithChecksum -> IO Bool
+fetchBlockAsync rc url rdResp blockWithChecksum = do
+  bracket_
+    (waitQSem $ workerSem rc)
+    (signalQSem $ workerSem rc)
+    $ do
+      ar <- async $ fetchBlock (rdOptions rc) url rdResp blockWithChecksum
+      result <- wait ar
+      return result
+
 -- | return block target file names in correct order.
 getBlockTargetFilenames :: RDOptions -> RDResponse -> [FilePath]
 getBlockTargetFilenames opts rdResp =
@@ -107,6 +121,9 @@ combineBlocks opts rdResp = do
   let outDir = outputDir opts
       filename = guessFilename $ respPath rdResp
       targetFilename = outDir </> filename
+  fileExist <- doesFileExist targetFilename
+  when (forceOverwrite opts && fileExist) $
+    removeFile targetFilename  -- TODO if remove failed, return IO False early.
   putStrLn $ "combining blocks to create " <> targetFilename
   forM_ (getBlockTargetFilenames opts rdResp) $ \blockFilename -> do
     debug opts $ "appending block file " <> blockFilename
@@ -128,38 +145,48 @@ getRDResponse _opts url = do
 
 -- | download file at given URL using reliable download API and block based
 -- downloading.
-downloadFile :: RDOptions -> T.Text -> IO Bool
-downloadFile opts url = do
+downloadFile :: RDClientRuntimeConfig -> T.Text -> IO Bool
+downloadFile rc url = do
+  let opts = rdOptions rc
   rdResp <- getRDResponse opts url
   if not $ respOk rdResp then do
       putStrLn $ "GET /rd/ api failed: " <> show (respMsg rdResp)
       return False
   else do
       putStrLn "GET /rd/ api ok"
-      putStrLn $ "Downloading file: " <> show (respPath rdResp) <> ", "
-               <> humanReadableSize (respFileSize rdResp)
-               <> ", " <> show (respBlockCount rdResp) <> " blocks"
-      (rdResp2, results) <- loopUntilAllBlocksReady opts url rdResp []
-      if and results then
-          combineBlocks opts rdResp2
+
+      let outDir = outputDir opts
+          filename = guessFilename $ respPath rdResp
+          targetFilename = outDir </> filename
+      fileExist <- doesFileExist targetFilename
+      if fileExist && not (forceOverwrite opts) then do
+          putStrLn $ "Warning: skip already existing file " <> targetFilename
+          return False    -- how to return early?
       else do
-          putStrLn $ (show . length . filter id) results <> " blocks failed."
-          return False
+          putStrLn $ "Downloading file: " <> show (respPath rdResp) <> ", "
+                   <> humanReadableSize (respFileSize rdResp)
+                   <> ", " <> show (respBlockCount rdResp) <> " blocks"
+          (rdResp2, results) <- loopUntilAllBlocksReady rc url rdResp []
+          if and results then
+              combineBlocks opts rdResp2
+          else do
+              putStrLn $ (show . length . filter id) results <> " blocks failed."
+              return False
 
 -- | a sleep loop that check whether all blocks in rdResp is ready, if not, do
 -- a GET again later and check it again. On each try, the diff of new ready
 -- blocks are sent to fetchBlock function.
 --
 -- Return whether download is successful for each block.
-loopUntilAllBlocksReady :: RDOptions -> T.Text -> RDResponse -> [BlockID] -> IO (RDResponse, [Bool])
-loopUntilAllBlocksReady opts url rdResp oldReadyBlocks = do
+loopUntilAllBlocksReady :: RDClientRuntimeConfig -> T.Text -> RDResponse -> [BlockID] -> IO (RDResponse, [Bool])
+loopUntilAllBlocksReady rc url rdResp oldReadyBlocks = do
   let blockIsReady = (/= "pending") . getBlockSha1sum
       blocks = respBlocks rdResp
       readyBlocks = filter blockIsReady blocks
       newReadyBlocks = filter ((`notElem` oldReadyBlocks) . getBlockId) readyBlocks
       allBlocksReady = all blockIsReady blocks
   putStrLn $ (show . length) newReadyBlocks <> " new blocks ready on server side"
-  results <- mapM (fetchBlock opts url rdResp) newReadyBlocks
+  results <- mapM (fetchBlockAsync rc url rdResp) newReadyBlocks
   if allBlocksReady then
     -- loop finished
     return (rdResp, results)
@@ -167,9 +194,9 @@ loopUntilAllBlocksReady opts url rdResp oldReadyBlocks = do
     when (null newReadyBlocks) $ do
          putStrLn "No new blocks ready on server side, waiting 1s"
          threadDelay 1000000
-    newRdResp <- getRDResponse opts url
+    newRdResp <- getRDResponse (rdOptions rc) url
     let prevResp = if respOk newRdResp then newRdResp else rdResp
-    loopUntilAllBlocksReady opts url prevResp (map getBlockId readyBlocks)
+    loopUntilAllBlocksReady rc url prevResp (map getBlockId readyBlocks)
 
 cliApp :: RDOptions -> IO ()
 cliApp opts = do
@@ -179,7 +206,10 @@ cliApp opts = do
             (createDirectoryIfMissing True dir)
             (\_ -> die $ "Create temp dir " <> dir <> " failed. Make sure you have correct permission.")
   debug opts $ "using temp dir: " <> dir
-  results <- mapM (downloadFile opts) (urls opts)
+  sem <- newQSem $ workerCount opts
+  let rc = RDClientRuntimeConfig { rdOptions=opts
+                                 , workerSem=sem}
+  results <- mapM (downloadFile rc) (urls opts)
   if and results then
       putStrLn "all urls downloaded."
   else
