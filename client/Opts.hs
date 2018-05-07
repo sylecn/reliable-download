@@ -56,13 +56,13 @@ argParser = RDOptions
       <> value 5
       <> metavar "INT" )
   <*> switch
-      (  long "verbose"
-      <> short 'v'
-      <> help "show more debug message"
-      <> showDefault )
-  <*> switch
       (  long "force"
       <> short 'f'
       <> help "overwrite exiting target file in OUTPUT_DIR"
+      <> showDefault )
+  <*> switch
+      (  long "verbose"
+      <> short 'v'
+      <> help "show more debug message"
       <> showDefault )
   <*> some (argument str (metavar "URL..."))

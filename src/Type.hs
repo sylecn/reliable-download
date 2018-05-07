@@ -32,6 +32,17 @@ data RDResponse = RDResponse {
     , respBlockCount :: Integer
     , respBlocks :: [BlockWithChecksum]}
 
+rdErrorResponse :: RDResponse
+rdErrorResponse = RDResponse {
+      respOk=False
+    , respMsg="error"
+    , respPath=""
+    , respFilePath=""
+    , respBlockSize=""
+    , respFileSize= -1
+    , respBlockCount= -1
+    , respBlocks=[]}
+
 instance FromJSON RDResponse where
     parseJSON = withObject "RDResponse" $ \v -> RDResponse
       <$> v .: "ok"

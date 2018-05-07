@@ -62,7 +62,11 @@ executables:
     - optparse-applicative
     - http-conduit
     - http-client
+    - http-types
     - async
+    - retry
+    - transformers
+    - socket
     ghc-options:
     - -threaded
 

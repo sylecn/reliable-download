@@ -1,8 +1,48 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2018-05-07>
+Time-stamp: <2018-05-08>
 #+STARTUP: content
 * notes                                                               :entry:
+** 2018-05-08 example run in prod env
+- try it on de03
+
+  on ryzen5,
+  cd ~/projects/reliable-download/
+  scp .stack-work/install/x86_64-linux-nopie/lts-10.3/8.2.2/bin/rd-api de01:d/
+
+  on de01,
+  cd ~/d/
+  chmod +x rd-api
+  env WEB_ROOT=$PWD ./rd-api
+  curl -v http://138.201.95.248:8082/rd/
+  curl -I http://138.201.95.248:8082/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+  okay.
+
+  378M gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+
+  on ryzen5,
+  tmake stack exec rd -- -d ~/d/.blocks -o ~/d/ http://138.201.95.248:8082/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+
+  #+BEGIN_SRC sh
+    sylecn@ryzen5:~/projects/reliable-download$ tmake stack exec rd -- -d ~/d/.blocks -o ~/d/ http://138.201.95.248:8082/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+    Tue May  8 00:45:31 CST 2018
+    will start timed run in 3 sec
+    running command: stack exec rd -- -d /home/sylecn/d/.blocks -o /home/sylecn/d/ http://138.201.95.248:8082/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+    GET /rd/ api ok
+    Downloading file: "gitlab-ce_10.3.5-ce.0_amd64_xenial.deb", 377 MiB, 189 blocks
+    189 new block(s) ready on server side
+    combining blocks to create /home/sylecn/d/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+    file downloaded to /home/sylecn/d/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+    all urls downloaded.
+    started at 2018-05-08 00:45:34
+    stopped at 2018-05-08 00:47:20
+    Duration: 106 seconds
+    sylecn@ryzen5:~/projects/reliable-download$
+  #+END_SRC
+  except for lacking progress info and download speed info.
+  download works perfectly.
+  sha1sum for the whole file matches.
+
 ** 2018-05-06 how to run rd-api in dev env
 - how to run rd-api
 
@@ -199,6 +239,10 @@ https://www.stackage.org/haddock/lts-10.3/http-conduit-2.2.4/Network-HTTP-Simple
 Network.HTTP.Client
 https://www.stackage.org/haddock/lts-10.3/http-client-0.5.7.1/Network-HTTP-Client.html
 
+how to handle exceptions in http-client?
+http-client/TUTORIAL.md at master · snoyberg/http-client
+https://github.com/snoyberg/http-client/blob/master/TUTORIAL.md#exceptions
+
 ** 2018-05-06 handle IO exceptions
 - Control.Exception
   https://www.stackage.org/haddock/lts-10.3/base-4.10.1.0/Control-Exception.html
@@ -373,6 +417,87 @@ that way you don't need to tell rd-server the web root dir.
 
 * current                                                             :entry:
 ** 
+** 2018-05-08 humanReadableSize: round up when convert byte to MiB. rd shows 377 MiB
+or just show as floating point with 1 digit after point.
+
+** 2018-05-08 when start rd-api, make error obvious if connect to redis failed.
+Current error is like this:
+#+BEGIN_SRC sh
+  root@us01:~/d# env WEB_ROOT=$PWD ./rd-api
+  2018-05-07 16:32:13 INFO Main: webRoot is /root/d
+  rd-api: Network.Socket.connect: <socket: 11>: does not exist (Connection refused)
+#+END_SRC
+
+** 2018-05-08 mkApp has shifting to the right problem.
+try write in MaybeT
+
+* done                                                                :entry:
+** 2018-05-06 write client side tool to actually do the download.
+- make this work:
+  env WEB_ROOT=/home/sylecn/persist/cache stack exec rd-api
+
+  stack exec rd -- -d ~/d/.blocks -o ~/d/ http://localhost:8082/ideaIC-2018.1.tar.gz
+- try it on de03
+
+  on ryzen5,
+  cd ~/projects/reliable-download/
+  scp .stack-work/install/x86_64-linux-nopie/lts-10.3/8.2.2/bin/rd-api de01:d/
+
+  on de01,
+  cd ~/d/
+  chmod +x rd-api
+  env WEB_ROOT=$PWD ./rd-api
+  curl -v http://138.201.95.248:8082/rd/
+  curl -I http://138.201.95.248:8082/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+  okay.
+
+  378M gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+
+  on ryzen5,
+  tmake stack exec rd -- -d ~/d/.blocks -o ~/d/ http://138.201.95.248:8082/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+
+  #+BEGIN_SRC sh
+    sylecn@ryzen5:~/projects/reliable-download$ tmake stack exec rd -- -d ~/d/.blocks -o ~/d/ http://138.201.95.248:8082/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+    Tue May  8 00:45:31 CST 2018
+    will start timed run in 3 sec
+    running command: stack exec rd -- -d /home/sylecn/d/.blocks -o /home/sylecn/d/ http://138.201.95.248:8082/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+    GET /rd/ api ok
+    Downloading file: "gitlab-ce_10.3.5-ce.0_amd64_xenial.deb", 377 MiB, 189 blocks
+    189 new block(s) ready on server side
+    combining blocks to create /home/sylecn/d/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+    file downloaded to /home/sylecn/d/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+    all urls downloaded.
+    started at 2018-05-08 00:45:34
+    stopped at 2018-05-08 00:47:20
+    Duration: 106 seconds
+    sylecn@ryzen5:~/projects/reliable-download$
+  #+END_SRC
+  except for lacking progress info and download speed info.
+  download works perfectly.
+  sha1sum for the whole file matches.
+
+- problems
+  - rd-api failed to run on us01.
+    #+BEGIN_SRC sh
+      root@us01:~/d# chmod +x rd-api
+      root@us01:~/d# env WEB_ROOT=$PWD ./rd-api
+      2018-05-07 16:32:13 INFO Main: webRoot is /root/d
+      rd-api: Network.Socket.connect: <socket: 11>: does not exist (Connection refused)
+    #+END_SRC
+    it's redis. redis not running on us01.
+  - try it on us01.
+
+    on ryzen5,
+    cd ~/projects/reliable-download/
+    scp .stack-work/install/x86_64-linux-nopie/lts-10.3/8.2.2/bin/rd-api us01:d/
+
+    on us01,
+    cd ~/d/
+    chmod +x rd-api
+    env HOST=0.0.0.0 PORT=8082 WEB_ROOT=$PWD ./rd-api
+
+    // us01 is too slow for anything. probably high level of oversell.
+
 ** 2018-05-07 add reliability to client code.
 - DONE If some block sha1sum is pending, go-to a sleep loop, retry until there
   are no pending blocks. Filter pending blocks when sending download task to
@@ -407,9 +532,68 @@ that way you don't need to tell rd-server the web root dir.
 
   - MOVED how to track progress?
 
-- retry download if sha1sum verification failed.
-- catch all IO exceptions, including disk io, redis io, http io.
+- DONE retry download if sha1sum verification failed.
+
+  in extra pkg.
+
+  Control.Exception.Extra
+  retry :: Int -> IO a -> IO a
+
+  how to retry with a delay? just combine your IO a with a IO ().
+
+  retry pkg.
+  Control.Retry
+  https://www.stackage.org/haddock/lts-10.3/retry-0.7.5.1/Control-Retry.html
+  this looks better. built-in support for delay.
+
+  if there is http error, or result is IO False, retry.
+
+  just capture http error myself and return IO False.
+
+- DONE catch all IO exceptions, including disk io, redis io, http io.
   fail at correct checkpoints.
+
+  http IO:
+      op `catch` (\ (e :: HttpException) -> do
+                    print $ "got HttpException: " <> show e
+                    return False)
+
+  disk IO:
+  use catchIOError
+
+  learn how to return early elegantly.
+
+  Control.Monad.Trans.Maybe
+  https://www.stackage.org/haddock/lts-10.3/transformers-0.5.2.0/Control-Monad-Trans-Maybe.html
+  MaybeT monad transformer
+
+  Clean Alternatives with MaybeT
+  http://www.parsonsmatt.org/2016/11/18/clean_alternatives_with_maybet.html
+
+  Monad Transformers - School of Haskell | School of Haskell
+  https://www.schoolofhaskell.com/user/commercial/content/monad-transformers
+
+  MaybeT is very difficult to understand.
+  The examples are not good enough.
+
+  haskell - Simplest non-trivial monad transformer example for "dummies", IO+Maybe - Stack Overflow
+  https://stackoverflow.com/questions/32579133/simplest-non-trivial-monad-transformer-example-for-dummies-iomaybe
+
+  see ./t1/Main.hs
+
+  client/Main.hs
+  downloadFile no longer shift to the right after switching to MaybeT IO Bool.
+
+- DONE handle non-2xx response.
+  https://github.com/snoyberg/http-client/blob/master/TUTORIAL.md#non-2xx-responses-1
+
+  only two places, 
+  - getRDResponse GET /rd
+    handled in-place
+
+  - fetchBlockFromHttp GET /file with Range header.
+    handled in retryOnFailure wrapperAction.
+
 - problems
   - does haskell support TCO?
     https://softwareengineering.stackexchange.com/questions/144274/whats-the-difference-between-recursion-and-corecursion
@@ -469,14 +653,33 @@ that way you don't need to tell rd-server the web root dir.
   - DONE webRoot is /nonexistent?
     fixed.
 
-** 2018-05-06 write client side tool to actually do the download.
-- make this work:
-  env WEB_ROOT=/home/sylecn/persist/cache stack exec rd-api
+** 2018-05-07 retrying has no error msg print on cli?
+what's the problem?
 
-  stack exec rd -- -d ~/d/.blocks -o ~/d/ http://localhost:8082/ideaIC-2018.1.tar.gz
-- 
+- when testing -f option
 
-* done                                                                :entry:
+  stack exec rd -- -f -d ~/d/.blocks -o ~/d/ http://localhost:8082/sdkman.sh
+  first call success
+  2nd call keep retrying without showing any error message.
+
+- reset client side env and try again.
+  rm -rf ~/d/.blocks/sdkman.sh/
+  rm -rf ~/d/sdkman.sh
+
+  stack exec rd -- -f -d ~/d/.blocks -o ~/d/ http://localhost:8082/sdkman.sh
+
+  enable verbose mode.
+  stack exec rd -- -v -f -d ~/d/.blocks -o ~/d/ http://localhost:8082/sdkman.sh
+
+  #+BEGIN_QUOTE
+  An action to check whether the result should be retried. If True, we delay
+  and retry the operation.
+  #+END_QUOTE
+  If True, we delay and retry the operation.
+  // should use not.
+
+  fixed.
+
 ** 2018-05-06 implement rd client basic logic.
 - how to handle IO exception?
 
