@@ -23,6 +23,11 @@ Time-stamp: <2018-05-07>
   curl http://localhost:8082/rd/ideaIC-2018.1.tar.gz
   stack exec rd -- -d ~/d/.blocks -o ~/d/ http://localhost:8082/ideaIC-2018.1.tar.gz
 
+  test fresh block-not-ready state:
+  redis-cli del "/home/sylecn/persist/cache/sdkman.sh_2097152_status"
+  redis-cli del "/home/sylecn/persist/cache/sdkman.sh_2097152"
+  stack exec rd -- -d ~/d/.blocks -o ~/d/ http://localhost:8082/sdkman.sh
+
 ** 2018-05-05 write the main logic of creating block metadata.
 then make it work with a thread pool with a single thread.
 
@@ -355,13 +360,76 @@ that way you don't need to tell rd-server the web root dir.
 * current                                                             :entry:
 ** 
 ** 2018-05-07 add reliability to client code.
-- when a block is pending. keep a sleep loop to do GET /rd/file again.
+- DONE If some block sha1sum is pending, go-to a sleep loop, retry until there
+  are no pending blocks. Filter pending blocks when sending download task to
+  thread pool.
+
+  should I use Control.Monad.Trans.Loop or just recursive call?
+  I used recursive call.
+
 - use a thread pool to download blocks. print overall progress when some
   parts done or some time elapsed.
 - retry download if sha1sum verification failed.
 - catch all IO exceptions, including disk io, redis io, http io.
   fail at correct checkpoints.
-- 
+- problems
+  - does haskell support TCO?
+    https://softwareengineering.stackexchange.com/questions/144274/whats-the-difference-between-recursion-and-corecursion
+    And Haskell's guarded recursion is just like tail recursion modulo cons.
+    https://stackoverflow.com/a/8882745/849891
+    http://en.wikipedia.org/wiki/Tail_call#Tail_recursion_modulo_cons
+    too complex, read it later.
+  - fix exception, fresh run fails. and the output is very frightening.
+    when some block fail, it should never run combine.
+    #+BEGIN_SRC sh
+      sylecn@ryzen5:~/projects/reliable-download$ stack exec rd -- -d ~/d/.blocks -o ~/d/ http://localhost:8082/sdkman.sh
+      GET /rd/ api ok
+      Downloading file: "sdkman.sh", 0 MiB, 1 blocks
+      sha1sum verification failed for sdkman.sh block 0, expect "pending"
+      combining blocks to create /home/sylecn/d/sdkman.sh
+      rd: /home/sylecn/d/.blocks/sdkman.sh/block0_pending: openBinaryFile: does not exist (No such file or directory)
+      sylecn@ryzen5:~/projects/reliable-download$
+    #+END_SRC
+
+    server side may fail to set status to "done".
+    // fixed. it's missing forever $ do on worker.
+
+    what does mapM return on empty list?
+    mapM (\x -> return True) []
+    it's an empty list.
+
+  - DONE still have race condition
+    #+BEGIN_SRC sh
+      sylecn@ryzen5:~/projects/reliable-download$   stack exec rd -- -d ~/d/.blocks -o ~/d/ http://localhost:8082/ideaIC-2018.1.tar.gz
+      GET /rd/ api ok
+      Downloading file: "ideaIC-2018.1.tar.gz", 516 MiB, 259 blocks
+      0 new blocks ready on server side
+      No new blocks ready on server side, waiting 1s
+      259 new blocks ready on server side
+      combining blocks to create /home/sylecn/d/ideaIC-2018.1.tar.gz
+      rd: /home/sylecn/d/.blocks/ideaIC-2018.1.tar.gz/block000_pending: openBinaryFile: does not exist (No such file or directory)
+      sylecn@ryzen5:~/projects/reliable-download$
+    #+END_SRC
+    I see. combining blocks get outdated rdRes.
+    fixed.
+
+  - infinite loop on server side.
+    when I deleted two redis key. and do a GET /rd/file.
+
+    no. loop is in client side. server side has no recursive call.
+    fixed.
+  - DONE when client side keep requesting /rd/file, the server side worker doesn't
+    calculate block sha1sum! staying in "pending".
+
+    status is "working"
+    hash key is empty hash.
+    I believe it's a race condition.
+
+    // I see the problem. the Worker only read one job from queue, then it
+    quits! There is no loop. haha. That's why task stays in "pending" state.
+
+  - DONE webRoot is /nonexistent?
+    fixed.
 
 ** 2018-05-06 write client side tool to actually do the download.
 - make this work:

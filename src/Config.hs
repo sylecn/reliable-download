@@ -18,9 +18,9 @@ data RDConfig = RDConfig {
     } deriving (Show)
 
 data RDRuntimeConfig = RDRuntimeConfig {
-      config :: RDConfig
-    , redisConn :: R.Connection
-    , fileChan :: Chan FillBlockParam
+      rcConfig :: RDConfig
+    , rcRedisConn :: R.Connection
+    , rcFileChan :: Chan FillBlockParam
     }
 
 defaultRDConfig :: RDConfig

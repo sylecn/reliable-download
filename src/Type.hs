@@ -8,6 +8,14 @@ type BlockID = Integer
 type Block = (BlockID, Integer, Integer)
 type BlockWithChecksum = (BlockID, Integer, Integer, T.Text)
 
+-- | fetch sha1sum from BlockWithChecksum
+getBlockSha1sum :: BlockWithChecksum -> T.Text
+getBlockSha1sum (_, _, _, sha1sum) = sha1sum
+
+-- | fetch blockId from BlockWithChecksum
+getBlockId :: BlockWithChecksum -> BlockID
+getBlockId (blockId, _, _, _) = blockId
+
 data FillBlockParam = FillBlockParam {
       fbpFilepath :: FilePath
     , fbpBlockSize :: Integer

@@ -12,6 +12,11 @@ category:            Utilities
 extra-source-files:
 - README.md
 
+ghc-options:
+  - -Wall
+  - -Werror
+  # - -fprof-auto
+
 default-extensions:
   - OverloadedStrings
   - ScopedTypeVariables

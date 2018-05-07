@@ -7,9 +7,7 @@ import Data.Monoid ((<>))
 import Control.Concurrent.Chan
 import System.Directory (setCurrentDirectory)
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as LT
 
-import Web.Scotty
 import Network.Wai.Handler.Warp
 import Formatting
 import Log
@@ -32,7 +30,7 @@ updateRDConfigFromEnv config = do
             Just dir -> config {webRoot=dir}
             Nothing -> config
   withSimpleStdOutLogger $ \logger -> runLogT "Main" logger $
-    logInfo_ $ "webRoot is " <> T.pack (webRoot config)
+    logInfo_ $ "webRoot is " <> T.pack (webRoot newConfig)
   return newConfig
 
 main :: IO ()
@@ -43,9 +41,9 @@ main = withSimpleStdOutLogger $ \logger -> do
           , R.connectPort=R.PortNumber (fromIntegral (redisPort config) :: PortNumber)
           }
   fileChan <- newChan
-  let runtimeConfig = RDRuntimeConfig { config=config
-                                      , redisConn=conn
-                                      , fileChan=fileChan}
+  let runtimeConfig = RDRuntimeConfig { rcConfig=config
+                                      , rcRedisConn=conn
+                                      , rcFileChan=fileChan}
   startWorkers runtimeConfig
   runLogT "Main" logger $
     logInfo_ $ sformat ("will listen on " % string % ":" % int) (host config) (port config)

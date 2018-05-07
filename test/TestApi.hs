@@ -19,9 +19,9 @@ import qualified Data.HashMap.Strict as H
 import qualified Database.Redis as R
 
 import Config
-import RD.Lib (sha1sumOnBytes, guessFilename)
+import RD.Lib (sha1sumOnBytes, guessFilename, genBlocks)
 import Worker (fileRange, sha1sumFileRange)
-import App (mkWaiApp, genBlocks)
+import App (mkWaiApp)
 
 -- | decode response as json object.
 jsonObject :: SResponse -> Maybe J.Object
@@ -30,8 +30,8 @@ jsonObject resp = J.decode $ simpleBody resp
 -- | decode response as json object, then retrieve a key.
 jsonKey :: SResponse -> T.Text -> Maybe J.Value
 jsonKey resp key = do
-  map <- jsonObject resp
-  H.lookup key map
+  m <- jsonObject resp
+  H.lookup key m
 
 jsonKeyAsBool :: SResponse -> T.Text -> Maybe Bool
 jsonKeyAsBool resp key = do
@@ -119,9 +119,9 @@ waiApp :: IO Application
 waiApp = do
    conn <- R.connect R.defaultConnectInfo
    fileChan <- newChan
-   mkWaiApp RDRuntimeConfig { config=defaultRDConfig
-                            , redisConn=conn
-                            , fileChan=fileChan}
+   mkWaiApp RDRuntimeConfig { rcConfig=defaultRDConfig
+                            , rcRedisConn=conn
+                            , rcFileChan=fileChan}
 
 apiSpec :: Spec
 apiSpec = with waiApp $ do
@@ -140,35 +140,35 @@ apiSpec = with waiApp $ do
       get "/abc" `shouldRespondWith` 404
 
     it "should parse basic path correctly" $ do
-      resp <- get "/test/rd/abc"
-      liftIO (simpleStatus resp `shouldBe` status200)
-      liftIO ((jsonKeyAsBool resp "ok") `shouldBe` Just True)
-      liftIO ((jsonKeyAsText resp "path") `shouldBe` Just "abc")
-      resp <- get "/test/rd/abc/def"
-      liftIO (simpleStatus resp `shouldBe` status200)
-      liftIO ((jsonKeyAsBool resp "ok") `shouldBe` Just True)
-      liftIO ((jsonKeyAsText resp "path") `shouldBe` Just "abc/def")
-      resp <- get "/test/rd/abc/def/"
-      liftIO (simpleStatus resp `shouldBe` status200)
-      liftIO ((jsonKeyAsBool resp "ok") `shouldBe` Just True)
-      liftIO ((jsonKeyAsText resp "path") `shouldBe` Just "abc/def/")
+      _resp <- get "/test/rd/abc"
+      liftIO (simpleStatus _resp `shouldBe` status200)
+      liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
+      liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "abc")
+      _resp <- get "/test/rd/abc/def"
+      liftIO (simpleStatus _resp `shouldBe` status200)
+      liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
+      liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "abc/def")
+      _resp <- get "/test/rd/abc/def/"
+      liftIO (simpleStatus _resp `shouldBe` status200)
+      liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
+      liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "abc/def/")
 
     it "should parse complex path correctly" $ do
-      resp <- getPath ["test", "rd", "abc def # ? ghi"]
-      liftIO (simpleStatus resp `shouldBe` status200)
-      liftIO ((jsonKeyAsBool resp "ok") `shouldBe` Just True)
-      liftIO ((jsonKeyAsText resp "path") `shouldBe` Just "abc def # ? ghi")
+      _resp <- getPath ["test", "rd", "abc def # ? ghi"]
+      liftIO (simpleStatus _resp `shouldBe` status200)
+      liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
+      liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "abc def # ? ghi")
 
-      resp <- getPath ["test", "rd", "abc/def.jpg"]
-      liftIO (simpleStatus resp `shouldBe` status200)
-      liftIO ((jsonKeyAsBool resp "ok") `shouldBe` Just True)
-      liftIO ((jsonKeyAsText resp "path") `shouldBe` Just "abc/def.jpg")
+      _resp <- getPath ["test", "rd", "abc/def.jpg"]
+      liftIO (simpleStatus _resp `shouldBe` status200)
+      liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
+      liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "abc/def.jpg")
 
       -- TODO the escape sequences is not supported by warp.
-      -- resp <- getPath ["test", "rd", "中文文件名.rar"]
-      -- liftIO (simpleStatus resp `shouldBe` status200)
-      -- liftIO ((jsonKeyAsBool resp "ok") `shouldBe` Just True)
-      -- liftIO ((jsonKeyAsText resp "path") `shouldBe` Just "中文文件名.rar")
+      -- _resp <- getPath ["test", "rd", "中文文件名.rar"]
+      -- liftIO (simpleStatus _resp `shouldBe` status200)
+      -- liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
+      -- liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "中文文件名.rar")
 
 main :: IO ()
 main = do

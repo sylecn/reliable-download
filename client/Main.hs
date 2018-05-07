@@ -9,21 +9,16 @@ import System.Directory (createDirectoryIfMissing
 import Control.Exception
 import System.IO.Error
 import System.Exit
-import System.Environment (lookupEnv)
-import Data.List (isPrefixOf)
 import System.FilePath ((</>))
 import Data.Text.Encoding (decodeUtf8)
+import Control.Concurrent (threadDelay)
 import qualified Data.Text as T
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
-import qualified Data.ByteString.Lazy.Char8 as L8
 import qualified Data.ByteString.Char8 as Char8
-import qualified Data.HashMap.Strict as M
 
-import Data.Aeson (Value(..))
 import Network.HTTP.Simple
 import Network.HTTP.Client (path)
-import Formatting
+import Formatting hiding (bytes)
 
 import RD.Lib (sha1sumOnBytes, guessFilename)
 import Type
@@ -54,6 +49,7 @@ fetchBlockFromHttp opts fbp = do
       filename = fbpFilename fbp
       rangeHeader = "bytes=" <> Char8.pack (show start) <> "-"
                              <> Char8.pack (show end)
+  assert (sha1sum /= "pending") (return ())
   -- TODO capture http error. implement retry here.
   debug opts $ "downloading " <> filename <> " block " <> show blockId
   req <- parseRequest $ T.unpack $ fbpUrl fbp
@@ -65,7 +61,7 @@ fetchBlockFromHttp opts fbp = do
       LB.writeFile blockTargetFile bodyLBS
       return True
   else do
-      putStrLn $ "sha1sum verification failed for " <> filename <> " block " <> show blockId
+      putStrLn $ "sha1sum verification failed for " <> filename <> " block " <> show blockId <> ", expect " <> show sha1sum
       return False
 
 -- | return block target file name (just base filename, no dir info)
@@ -76,10 +72,9 @@ getBlockFilename rdResp blockWithChecksum =
   formatToString ("block" % left padding '0' % "_" % stext) blockId sha1sum
 
 -- | fetch a single block, return IO True on success
-fetchBlock :: RDOptions -> T.Text -> RDResponse -> BlockID -> IO Bool
-fetchBlock opts url rdResp blockId = do
-  let blockWithChecksum = respBlocks rdResp !! fromIntegral blockId
-      filename = guessFilename url
+fetchBlock :: RDOptions -> T.Text -> RDResponse -> BlockWithChecksum -> IO Bool
+fetchBlock opts url rdResp blockWithChecksum = do
+  let filename = guessFilename url
       blockFileDir = tempDir opts </> filename
       blockFilename = getBlockFilename rdResp blockWithChecksum
       blockTargetFile = blockFileDir </> blockFilename
@@ -124,13 +119,18 @@ combineBlocks opts rdResp = do
     removeDirectoryRecursive tempdir
   return True
 
+-- | call /rd/<file> api and fetch response
+getRDResponse :: RDOptions -> T.Text -> IO RDResponse
+getRDResponse _opts url = do
+  req <- parseRequest $ T.unpack url
+  resp <- httpJSON $ req { path="/rd" <> path req }
+  return $ getResponseBody resp
+
 -- | download file at given URL using reliable download API and block based
 -- downloading.
 downloadFile :: RDOptions -> T.Text -> IO Bool
 downloadFile opts url = do
-  req <- parseRequest $ T.unpack url
-  resp <- httpJSON $ req { path="/rd" <> path req }
-  let rdResp = getResponseBody resp :: RDResponse
+  rdResp <- getRDResponse opts url
   if not $ respOk rdResp then do
       putStrLn $ "GET /rd/ api failed: " <> show (respMsg rdResp)
       return False
@@ -139,12 +139,37 @@ downloadFile opts url = do
       putStrLn $ "Downloading file: " <> show (respPath rdResp) <> ", "
                <> humanReadableSize (respFileSize rdResp)
                <> ", " <> show (respBlockCount rdResp) <> " blocks"
-      results <- mapM (fetchBlock opts url rdResp) [0..respBlockCount rdResp - 1]
+      (rdResp2, results) <- loopUntilAllBlocksReady opts url rdResp []
       if and results then
-          combineBlocks opts rdResp
+          combineBlocks opts rdResp2
       else do
           putStrLn $ (show . length . filter id) results <> " blocks failed."
           return False
+
+-- | a sleep loop that check whether all blocks in rdResp is ready, if not, do
+-- a GET again later and check it again. On each try, the diff of new ready
+-- blocks are sent to fetchBlock function.
+--
+-- Return whether download is successful for each block.
+loopUntilAllBlocksReady :: RDOptions -> T.Text -> RDResponse -> [BlockID] -> IO (RDResponse, [Bool])
+loopUntilAllBlocksReady opts url rdResp oldReadyBlocks = do
+  let blockIsReady = (/= "pending") . getBlockSha1sum
+      blocks = respBlocks rdResp
+      readyBlocks = filter blockIsReady blocks
+      newReadyBlocks = filter ((`notElem` oldReadyBlocks) . getBlockId) readyBlocks
+      allBlocksReady = all blockIsReady blocks
+  putStrLn $ (show . length) newReadyBlocks <> " new blocks ready on server side"
+  results <- mapM (fetchBlock opts url rdResp) newReadyBlocks
+  if allBlocksReady then
+    -- loop finished
+    return (rdResp, results)
+  else do
+    when (null newReadyBlocks) $ do
+         putStrLn "No new blocks ready on server side, waiting 1s"
+         threadDelay 1000000
+    newRdResp <- getRDResponse opts url
+    let prevResp = if respOk newRdResp then newRdResp else rdResp
+    loopUntilAllBlocksReady opts url prevResp (map getBlockId readyBlocks)
 
 cliApp :: RDOptions -> IO ()
 cliApp opts = do
@@ -157,7 +182,7 @@ cliApp opts = do
   results <- mapM (downloadFile opts) (urls opts)
   if and results then
       putStrLn "all urls downloaded."
-  else do
+  else
       die $ (show . length . filter id) results <> " urls failed."
 
 main :: IO ()
