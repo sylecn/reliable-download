@@ -152,6 +152,31 @@ DONE hoogle-5.0.14
   53M	.stack-work/
 
 ** 2018-05-04 for project notes, see GTD.org id002
+** 2018-05-06 client design doc (moved from GTD.org id002)
+- client side start downloading blocks using a thread pool or similar.
+  block data is saved to .blocks/<fn>/blockN_<block_sha1sum> when it is
+  fetched in whole and verified. block data is removed when all blocks are
+  joined to the final file, unless user specify -k --keep-blocks on rd cli.
+
+  show a nice progress bar.
+  #+BEGIN_SRC sh
+    downloading bigfile
+    xxx blocks
+    downloading block 1
+    downloading block 2
+    1/24 ready, X%
+    downloading block 3
+    downloading block 4
+    2/24 ready, X%
+    downloading block 5
+    ...
+    block N ready, 100%
+    bigfile downloaded.
+  #+END_SRC
+
+  block download use HTTP/1.1 Range header to fetch that block.
+  Range: bytes=0-499
+  Range: bytes=500-999
 ** 2018-05-05 API spec
 - POST /rd
   json body
@@ -329,32 +354,24 @@ that way you don't need to tell rd-server the web root dir.
 
 * current                                                             :entry:
 ** 
-** 2018-05-06 client design doc
-- client side start downloading blocks using a thread pool or similar.
-  block data is saved to .blocks/<fn>/blockN_<block_sha1sum> when it is
-  fetched in whole and verified. block data is removed when all blocks are
-  joined to the final file, unless user specify -k --keep-blocks on rd cli.
+** 2018-05-07 add reliability to client code.
+- when a block is pending. keep a sleep loop to do GET /rd/file again.
+- use a thread pool to download blocks. print overall progress when some
+  parts done or some time elapsed.
+- retry download if sha1sum verification failed.
+- catch all IO exceptions, including disk io, redis io, http io.
+  fail at correct checkpoints.
+- 
 
-  show a nice progress bar.
-  #+BEGIN_SRC sh
-    downloading bigfile
-    xxx blocks
-    downloading block 1
-    downloading block 2
-    1/24 ready, X%
-    downloading block 3
-    downloading block 4
-    2/24 ready, X%
-    downloading block 5
-    ...
-    block N ready, 100%
-    bigfile downloaded.
-  #+END_SRC
+** 2018-05-06 write client side tool to actually do the download.
+- make this work:
+  env WEB_ROOT=/home/sylecn/persist/cache stack exec rd-api
 
-  block download use HTTP/1.1 Range header to fetch that block.
-  Range: bytes=0-499
-  Range: bytes=500-999
+  stack exec rd -- -d ~/d/.blocks -o ~/d/ http://localhost:8082/ideaIC-2018.1.tar.gz
+- 
 
+* done                                                                :entry:
+** 2018-05-06 implement rd client basic logic.
 - how to handle IO exception?
 
   make sure this show error msg and exit gracefully.
@@ -416,13 +433,9 @@ that way you don't need to tell rd-server the web root dir.
 - DONE if target file exists, skip downloading, just return True.
 
 - DONE verify downloaded data before writing it to disk.
-  TODO retry if verification failed.
 
 - DONE combine all parts and put result file in download (default is current)
   dir. after combine delete block temp files.
-
-- TODO use a thread pool to download blocks. print overall progress when some
-  parts done or some time elapsed.
 
 - problems
   - DONE sha1sum verification failed for ideaIC-2018.1.tar.gz block xxx
@@ -479,14 +492,6 @@ that way you don't need to tell rd-server the web root dir.
           LB.appendFile targetFilename content
     #+END_SRC
 
-** 2018-05-06 write client side tool to actually do the download.
-- make this work:
-  env WEB_ROOT=/home/sylecn/persist/cache stack exec rd-api
-
-  stack exec rd -- -d ~/d/.blocks http://localhost:8082/ideaIC-2018.1.tar.gz
-- 
-
-* done                                                                :entry:
 ** 2018-05-05 hosting static file via warp?
 - try it. it makes development easier.
 - make sure Range header is supported.
