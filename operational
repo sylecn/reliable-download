@@ -417,6 +417,9 @@ that way you don't need to tell rd-server the web root dir.
 
 * current                                                             :entry:
 ** 
+** 2018-05-08 added some progress log. download seems sequential.
+QSem based worker not effective?
+
 ** 2018-05-08 humanReadableSize: round up when convert byte to MiB. rd shows 377 MiB
 or just show as floating point with 1 digit after point.
 

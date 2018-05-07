@@ -95,6 +95,7 @@ fetchBlockFromHttp opts fbp = do
           let blockTargetFile = fbpBlockTargetFile fbp
           debug opts $ "writing block data to " <> blockTargetFile
           LB.writeFile blockTargetFile bodyLBS
+          putStrLn $ "block " <> show blockId <> " fetched"
           return True
       else do
           putStrLn $ "sha1sum verification failed for " <> filename <> " block " <> show blockId <> ", expect " <> show sha1sum
