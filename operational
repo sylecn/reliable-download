@@ -1,8 +1,28 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2018-05-06>
+Time-stamp: <2018-05-07>
 #+STARTUP: content
 * notes                                                               :entry:
+** 2018-05-06 how to run rd-api in dev env
+- how to run rd-api
+
+  cd ~/projects/reliable-download/
+  env WEB_ROOT=/home/sylecn/persist/cache stack exec rd-api
+
+- Test it is working:
+
+  static file hosting:
+  curl -XGET http://localhost:8082/sdkman.sh
+
+  rd api:
+  curl -XGET http://localhost:8082/rd/ideaIC-2018.1.tar.gz
+  curl -XGET http://localhost:8082/rd/ideaIC-2018.1.tar.gz | jq .
+
+- client tool:
+  cd ~/projects/reliable-download/
+  curl http://localhost:8082/rd/ideaIC-2018.1.tar.gz
+  stack exec rd -- -d ~/d/.blocks -o ~/d/ http://localhost:8082/ideaIC-2018.1.tar.gz
+
 ** 2018-05-05 write the main logic of creating block metadata.
 then make it work with a thread pool with a single thread.
 
@@ -67,7 +87,7 @@ this should return json of the block metadata.
   - 
 
 ** 2018-05-06 how to run hlint
-stack exec hlint -- src api
+stack exec hlint -- src api client
 ** 2018-05-05 it's impossible to do logging easily in haskell.
 two problems
 
@@ -112,15 +132,6 @@ two problems
   shouldContain
   etc
 
-** 2018-05-05 Data.Aeson
-http://hackage.haskell.org/package/aeson-1.3.1.0/docs/Data-Aeson.html
-// this seems more readable than lts haskell's doc.
-
-Aeson: the tutorial
-https://artyom.me/aeson
-
-** 2018-05-05 sol/hpack: hpack: An alternative format for Haskell packages
-https://github.com/sol/hpack
 ** 2018-05-04 make hoogle work in current project
 stack build hoogle
 requires building 54 pkgs. lots of dependencies.
@@ -140,6 +151,32 @@ DONE hoogle-5.0.14
 - info: file size
   53M	.stack-work/
 
+** 2018-05-04 for project notes, see GTD.org id002
+** 2018-05-05 API spec
+- POST /rd
+  json body
+  {"path": "/path/to/resource"}
+- 
+
+* lib docs 							      :entry:
+** 2018-05-06 http client docs
+Making HTTP requests - http-client library
+https://haskell-lang.org/library/http-client
+
+Network.HTTP.Simple
+https://www.stackage.org/haddock/lts-10.3/http-conduit-2.2.4/Network-HTTP-Simple.html
+
+Network.HTTP.Client
+https://www.stackage.org/haddock/lts-10.3/http-client-0.5.7.1/Network-HTTP-Client.html
+
+** 2018-05-06 handle IO exceptions
+- Control.Exception
+  https://www.stackage.org/haddock/lts-10.3/base-4.10.1.0/Control-Exception.html
+- System.IO.Error
+  https://www.stackage.org/haddock/lts-10.3/base-4.10.1.0/System-IO-Error.html
+
+** 2018-05-05 sol/hpack: hpack: An alternative format for Haskell packages
+https://github.com/sol/hpack
 ** 2018-05-05 HUnit: A unit testing framework for Haskell
 https://hackage.haskell.org/package/HUnit
 ** 2018-05-05 Web.Scotty
@@ -149,13 +186,15 @@ html :: Text -> ActionM ()
 scotty/examples at master · scotty-web/scotty
 https://github.com/scotty-web/scotty/tree/master/examples
 
-** 2018-05-04 for project notes, see GTD.org id002
-** 2018-05-05 API spec
-- POST /rd
-  json body
-  {"path": "/path/to/resource"}
-- 
+** 2018-05-05 Data.Aeson
+http://hackage.haskell.org/package/aeson-1.3.1.0/docs/Data-Aeson.html
+// this seems more readable than lts haskell's doc.
 
+Aeson: the tutorial
+https://artyom.me/aeson
+
+** 2018-05-06 optparse-applicative :: Stackage Server
+https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
 * later                                                               :entry:
 ** 2018-05-05 add logging support
 - hslogger
@@ -290,11 +329,161 @@ that way you don't need to tell rd-server the web root dir.
 
 * current                                                             :entry:
 ** 
+** 2018-05-06 client design doc
+- client side start downloading blocks using a thread pool or similar.
+  block data is saved to .blocks/<fn>/blockN_<block_sha1sum> when it is
+  fetched in whole and verified. block data is removed when all blocks are
+  joined to the final file, unless user specify -k --keep-blocks on rd cli.
+
+  show a nice progress bar.
+  #+BEGIN_SRC sh
+    downloading bigfile
+    xxx blocks
+    downloading block 1
+    downloading block 2
+    1/24 ready, X%
+    downloading block 3
+    downloading block 4
+    2/24 ready, X%
+    downloading block 5
+    ...
+    block N ready, 100%
+    bigfile downloaded.
+  #+END_SRC
+
+  block download use HTTP/1.1 Range header to fetch that block.
+  Range: bytes=0-499
+  Range: bytes=500-999
+
+- how to handle IO exception?
+
+  make sure this show error msg and exit gracefully.
+  stack exec rd -- -d /root/.ssh url
+
+  this should work:
+  stack exec rd -- url
+  stack exec rd -- -d .tmp url
+
+  Control.Exception
+  https://www.stackage.org/haddock/lts-10.3/base-4.10.1.0/Control-Exception.html#g:3
+
+- which http client to use?
+
+  make sure I can add header easily and I can save bytestring to file easily.
+
+  - http-client-0.5.7.1 An HTTP client engine, intended as a base layer for
+    more user-friendly packages. Note that, if you want to make HTTPS secure
+    connections, you should use http-client-tls in addition to this library.
+  - http-conduit-2.2.4 HTTP client package with conduit interface and HTTPS
+    support.
+
+    Provides for making efficient HTTP/HTTPS requests, providing either a
+    simple or streaming interface.  Full tutorial docs are available at:
+    https://haskell-lang.org/library/http-client
+
+    also support streaming.
+
+  - http-streams-0.8.5.5
+
+    An HTTP client library for Haskell using the Snap Framework's io-streams
+    library to handle the streaming IO.
+
+  - req-1.0.0
+
+    Simple but powerful lens-based API
+    built on reliable libraries like http-client and lens.
+    Session handling includes connection keep-alive and pooling, and cookie
+    persistence.
+    Basic and OAuth2 bearer authentication
+
+    // keep-alive will be useful for my cli tool.
+
+    it has a doc section comment on other libs.
+    Motivation and Req vs other libraries
+
+  - req-conduit-1.0.0
+  - wreq-0.5.2.0
+
+  - let me just try http-conduit or req.
+    stack exec rd -- -d ~/d/.blocks http://myip.emacsos.com/
+    stack exec rd -- -d ~/d/.blocks https://myip.emacsos.com/
+    both http and https are supported.
+
+    try add range header.
+    stack exec rd -- -d ~/d/.blocks http://localhost:8082/sdkman.sh
+    it works.
+
+- DONE if target file exists, skip downloading, just return True.
+
+- DONE verify downloaded data before writing it to disk.
+  TODO retry if verification failed.
+
+- DONE combine all parts and put result file in download (default is current)
+  dir. after combine delete block temp files.
+
+- TODO use a thread pool to download blocks. print overall progress when some
+  parts done or some time elapsed.
+
+- problems
+  - DONE sha1sum verification failed for ideaIC-2018.1.tar.gz block xxx
+    try download using curl.
+    curl -o ~/d/t1.out -r 0-2097151 http://localhost:8082/ideaIC-2018.1.tar.gz
+    sha1sum ~/d/t1.out
+    4690b050834d4059d40ad6f63bf91d6a4558bb71  /home/sylecn/d/t1.out
+
+    curl http://localhost:8082/rd/ideaIC-2018.1.tar.gz | jq '.blocks[0]'
+    #+BEGIN_SRC json
+      [
+        0,
+        0,
+        2097151,
+        "a31a9a1d7d98e957ab8e615dc72b656f4896fa81"
+      ]
+    #+END_SRC
+
+    In deed it is different.
+
+    added a failing unit test.
+    offby1 error. fixed.
+    blockContent <- LB.hGet handle $ fromIntegral (end - start + 1)
+
+  - DONE /home/sylecn/projects/reliable-download/src/RD/Lib.hs:10:1: error:
+    Ambiguous module name ‘Crypto.Hash’:
+      it was found in multiple packages:
+      cryptohash-0.11.9 cryptonite-0.24Ambiguous module name ‘Crypto.Hash’:
+      it was found in multiple packages:
+      cryptohash-0.11.9 cryptonite-0.24
+
+    this is a problem in ucompile. build was not using project scope stack
+    build/test. fixed.
+
+  - DONE how to reduce code duplication in fetchBlock and getBlockTargetFilenames.
+
+  - DONE combineBlocks doesn't generate target file.
+    appendFile doesn't create file if it doesn't exist?
+
+    rewrite in do notation worked. fmap didn't work. probably related to
+    laziness. value is created but never forced when written in fmap inside IO
+    monad.
+
+    old:
+    #+BEGIN_SRC haskell
+      \blockFilename ->
+          fmap (LB.appendFile targetFilename) (LB.readFile blockFilename)
+    #+END_SRC
+
+    now:
+    #+BEGIN_SRC haskell
+      \blockFilename -> do
+          content <- LB.readFile blockFilename
+          LB.appendFile targetFilename content
+    #+END_SRC
+
 ** 2018-05-06 write client side tool to actually do the download.
 - make this work:
   env WEB_ROOT=/home/sylecn/persist/cache stack exec rd-api
 
-  rd http://localhost:8082/ideaIC-2018.1.tar.gz
+  stack exec rd -- -d ~/d/.blocks http://localhost:8082/ideaIC-2018.1.tar.gz
 - 
 
 * done                                                                :entry:

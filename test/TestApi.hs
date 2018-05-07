@@ -10,6 +10,7 @@ import Data.Binary.Builder (toLazyByteString)
 import Network.Wai (Application)
 import System.FilePath
 import Control.Concurrent.Chan
+import System.Directory (removeFile)
 
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Lazy as LB
@@ -17,8 +18,10 @@ import qualified Data.Text as T
 import qualified Data.HashMap.Strict as H
 import qualified Database.Redis as R
 
-import App (mkWaiApp, genBlocks)
 import Config
+import RD.Lib (sha1sumOnBytes, guessFilename)
+import Worker (fileRange, sha1sumFileRange)
+import App (mkWaiApp, genBlocks)
 
 -- | decode response as json object.
 jsonObject :: SResponse -> Maybe J.Object
@@ -51,13 +54,30 @@ spec = do
       True `shouldBe` True
 
   describe "3rd party libs" $ do
+
     it "should encode and decode utf-8 characters in URL" $ do
       ((decodePathSegments . LB.toStrict . toLazyByteString . encodePathSegments) ["中文1", "路径2"]) `shouldBe` ["中文1", "路径2"]
+
     it "should combine dir and relative file path correctly" $ do
       combine "/var/www/foo" "t1" `shouldBe` "/var/www/foo/t1"
       combine "/var/www/foo" "t1/t2" `shouldBe` "/var/www/foo/t1/t2"
       combine "/var/www/foo/" "t1" `shouldBe` "/var/www/foo/t1"
       combine "/var/www/foo/" "t1/t2" `shouldBe` "/var/www/foo/t1/t2"
+
+  describe "appendFile" $ do
+    it "should create file if file doesn't exist" $ do
+      contentLB <- liftIO $ do
+         LB.appendFile "/home/sylecn/d/t2.out" "abc"
+         LB.appendFile "/home/sylecn/d/t2.out" "def"
+         result <- LB.readFile "/home/sylecn/d/t2.out"
+         removeFile "/home/sylecn/d/t2.out"
+         return result
+      contentLB `shouldBe` "abcdef"
+
+  describe "sha1sumOnBytes" $ do
+    it "should work" $ do
+      sha1sumOnBytes "\n" `shouldBe` "adc83b19e793491b1c6ea0fd8b46cd9f32e592fc"
+      sha1sumOnBytes "abcd" `shouldBe` "81fe8bfe87576c3ecb22426f8e57847382917acf"
 
   describe "genBlocks" $ do
     it "should work" $ do
@@ -67,6 +87,29 @@ spec = do
       genBlocks 3 2 `shouldBe` [(0, 0, 1), (1, 2, 2)]
       genBlocks 4 2 `shouldBe` [(0, 0, 1), (1, 2, 3)]
       genBlocks 5 2 `shouldBe` [(0, 0, 1), (1, 2, 3), (2, 4, 4)]
+
+  describe "guessFilename" $ do
+    it "should work" $ do
+      guessFilename "/abc.txt" `shouldBe` "abc.txt"
+      guessFilename "foo/abc.txt" `shouldBe` "abc.txt"
+      guessFilename "http://example.com/abc.txt" `shouldBe` "abc.txt"
+      guessFilename "http://example.com/foo/abc.txt" `shouldBe` "abc.txt"
+      guessFilename "http://example.com/foo/bar/abc.txt" `shouldBe` "abc.txt"
+      guessFilename "abc.txt" `shouldBe` "abc.txt"
+
+  describe "fileRange, hGet n bytes" $ do
+    it "should work" $ do
+      contentLB <- liftIO $ fileRange "/home/sylecn/persist/cache/ideaIC-2018.1.tar.gz" 0 2097151
+      let first10Byte = LB.take 10 contentLB
+      sha1sumOnBytes first10Byte `shouldBe` "04bdadb7bd09681ea2d3f84210feff6549b6ab45"
+      LB.length contentLB `shouldBe` 2097152
+      let last10Byte = LB.drop (2097152 - 10) contentLB
+      sha1sumOnBytes last10Byte `shouldBe` "c643bc36514fce49013d31f80775dbbc9bf9e9a7"
+
+  describe "sha1sumFileRange" $ do
+    it "should work" $ do
+      sha1 <- liftIO $ sha1sumFileRange "/home/sylecn/persist/cache/ideaIC-2018.1.tar.gz" 0 2097151
+      sha1 `shouldBe` "4690b050834d4059d40ad6f63bf91d6a4558bb71"
 
 -- | like get, but accept path in [T.Text] format and do url safe encoding.
 getPath :: [T.Text] -> WaiSession SResponse

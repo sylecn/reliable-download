@@ -66,8 +66,8 @@ mkApp runtimeConfig = do
       object ["ok" .= True
              ,"app" .= ("reliable-download api" :: T.Text)]
   get (regex "^/rd/(.*)") $ do
-    path :: LT.Text <- param "1"
-    let filepath = combine (webRoot (config runtimeConfig)) (LT.unpack path)
+    path :: T.Text <- param "1"
+    let filepath = combine (webRoot (config runtimeConfig)) (T.unpack path)
     liftIO $ putStrLn $ "get block metadata for " <> filepath
     fileStatus <- liftIO $ getFileStatus filepath    -- TODO catch IO exception
     let fileSizeInByte = toInteger $ fileSize fileStatus
@@ -86,13 +86,15 @@ mkApp runtimeConfig = do
                  ,"msg" .= ("check file status in redis failed" :: T.Text)]
         jsonRespOk = do
           blocksWithSha1sum <- liftIO $ fillSha1sum runtimeConfig fbp
-          json $ object ["ok" .= True
-                        ,"block_size" .= ("2MiB" :: T.Text)
-                        ,"file_size" .= fileSizeInByte
-                        ,"block_count" .= blockCount
-                        ,"blocks" .= blocksWithSha1sum
-                        ,"path" .= path
-                        ,"filepath" .= filepath]
+          json $ RDResponse {
+                        respOk=True
+                      , respMsg=""
+                      , respPath=path
+                      , respFilePath=filepath
+                      , respBlockSize="2MiB"
+                      , respFileSize=fileSizeInByte
+                      , respBlockCount=blockCount
+                      , respBlocks=blocksWithSha1sum }
 
     -- if this file is new or has status "error", add task to fileChan.
     redisReply <- liftIO $ R.runRedis (redisConn runtimeConfig) $ R.setnx strKey "working"

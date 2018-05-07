@@ -36,6 +36,7 @@ dependencies:
   - filepath
   - unix
   - unordered-containers
+  - split
 
 library:
   source-dirs: src
@@ -49,25 +50,21 @@ executables:
   rd:
     source-dirs:      client
     main:             Main.hs
+    dependencies:
+    - reliable-download    # I only need the Type module
+    - optparse-applicative
+    - http-conduit
+    - http-client
 
 tests:
-  api-test:
+  all-tests:
     main: TestApi.hs
     source-dirs: test
     dependencies:
     - reliable-download
-    - HUnit
     - hspec
     - hspec-wai
     - http-types
     - wai-extra
     - unordered-containers
     - binary
-  lib-test:
-    main: test.hs
-    other-modules:
-      - TestLib
-    source-dirs: test
-    dependencies:
-    - reliable-download
-    - HUnit
