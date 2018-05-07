@@ -27,49 +27,7 @@ import Formatting
 
 import RD.Lib (sha1sumOnBytes, guessFilename)
 import Type
-
-data RDOptions = RDOptions
-  { blockMaxRetry :: Int
-  , keepBlockData :: Bool
-  , tempDir :: FilePath
-  , outputDir :: FilePath
-  , verbose :: Bool
-  , urls :: [T.Text] } deriving (Show)
-
-argParser :: Parser RDOptions
-argParser = RDOptions
-  <$> option auto
-      (  long "block-max-retry"
-      <> short 'r'
-      <> help "max retry for each block"
-      <> showDefault
-      <> value 30
-      <> metavar "INT" )
-  <*> switch
-      (  long "keep"
-      <> short 'k'
-      <> help "keep block data when download has finished and combined"
-      <> showDefault )
-  <*> strOption
-      (  long "temp-dir"
-      <> short 'd'
-      <> help "the dir to keep block download data"
-      <> showDefault
-      <> value ".blocks"
-      <> metavar "TEMP_DIR" )
-  <*> strOption
-      (  long "output-dir"
-      <> short 'o'
-      <> help "the dir to keep the final combined file"
-      <> showDefault
-      <> value "."
-      <> metavar "OUTPUT_DIR" )
-  <*> switch
-      (  long "verbose"
-      <> short 'v'
-      <> help "show more debug message"
-      <> showDefault )
-  <*> some (argument str (metavar "URL..."))
+import Opts
 
 debug :: Show a => RDOptions -> a -> IO ()
 debug opts msg = when (verbose opts) $ print msg
