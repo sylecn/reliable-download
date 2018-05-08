@@ -19,7 +19,7 @@ import qualified Data.HashMap.Strict as H
 import qualified Database.Redis as R
 
 import Config
-import RD.Lib (sha1sumOnBytes, guessFilename, genBlocks)
+import Lib (sha1sumOnBytes, guessFilename, genBlocks)
 import Worker (fileRange, sha1sumFileRange)
 import App (mkWaiApp)
 

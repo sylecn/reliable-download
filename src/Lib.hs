@@ -1,4 +1,4 @@
-module RD.Lib
+module Lib
     ( sha1sum
     , sha1sumOnBytes
     , guessFilename

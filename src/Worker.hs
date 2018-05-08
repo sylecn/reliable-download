@@ -14,7 +14,7 @@ import qualified Database.Redis as R
 
 import Type
 import Config
-import RD.Lib (sha1sumOnBytes)
+import Lib (sha1sumOnBytes)
 
 -- | read file range data as LB.ByteString. handle must be a handle to an
 -- opened file.

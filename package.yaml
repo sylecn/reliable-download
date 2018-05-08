@@ -23,14 +23,14 @@ default-extensions:
 
 dependencies:
   - base >= 4.7 && < 5
+  - scotty
   - wai
   - warp
   # - wai-app-static
   - wai-middleware-static
-  - directory
-  - scotty
-  - cryptohash
   - hedis
+  - directory
+  - cryptohash
   - bytestring
   - text
   - byteable
@@ -41,7 +41,7 @@ dependencies:
   - filepath
   - unix
   - unordered-containers
-  - split
+  - optparse-applicative
 
 library:
   source-dirs: src
@@ -59,7 +59,6 @@ executables:
     main:             Main.hs
     dependencies:
     - reliable-download    # I only need the Type module
-    - optparse-applicative
     - http-conduit
     - http-client
     - http-types

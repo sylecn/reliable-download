@@ -30,7 +30,7 @@ import Network.HTTP.Client (path, responseStatus)
 import Formatting hiding (bytes)
 import Control.Retry (retrying, constantDelay, limitRetries, rsIterNumber)
 
-import RD.Lib (sha1sumOnBytes, guessFilename)
+import Lib (sha1sumOnBytes, guessFilename)
 import Type
 import Opts
 

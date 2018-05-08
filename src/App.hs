@@ -19,7 +19,7 @@ import qualified Data.HashMap.Strict as M
 
 import Type
 import Config
-import RD.Lib (sha1sum, genBlocks)
+import Lib (sha1sum, genBlocks)
 
 -- | fill block sha1sum, if sha1sum is not ready yet, put "pending" there.
 fillSha1sum :: RDRuntimeConfig -> FillBlockParam -> IO [BlockWithChecksum]
