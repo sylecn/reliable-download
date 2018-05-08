@@ -42,6 +42,7 @@ dependencies:
   - unix
   - unordered-containers
   - optparse-applicative
+  - ansi-wl-pprint
 
 library:
   source-dirs: src

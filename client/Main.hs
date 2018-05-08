@@ -280,5 +280,5 @@ main = cliApp =<< execParser opts
   where
     opts = info (argParser <**> helper)
       (  fullDesc
-      <> progDesc "download large files across GFW reliably"
-      <> header "rd - reliable download command line tool" )
+      <> header "rd - reliable download command line tool"
+      <> progDesc "Download large files across GFW reliably. Requires using rd-api on server side. For more information, see rd-api --help")

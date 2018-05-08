@@ -8,6 +8,7 @@ import Data.Monoid ((<>))
 
 import Type
 
+-- | rd-api configuration, supports cli arguments or env variable.
 data RDConfig = RDConfig {
       host :: String
     , port :: Int

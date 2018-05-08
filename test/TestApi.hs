@@ -121,7 +121,7 @@ waiApp = do
    fileChan <- newChan
    mkWaiApp RDRuntimeConfig { rcConfig=defaultRDConfig
                             , rcRedisConn=conn
-                            , rcFileChan=fileChan}
+                            , rcFileChan=fileChan }
 
 apiSpec :: Spec
 apiSpec = with waiApp $ do

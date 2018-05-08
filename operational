@@ -270,6 +270,17 @@ https://artyom.me/aeson
 ** 2018-05-06 optparse-applicative :: Stackage Server
 https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
 * later                                                               :entry:
+** 2018-05-08 rd-api, allow serve static file without redis-server.
+--disable-rd-api
+if set, do not provides /rd/ api. just act like a static file server.
+this does not require redis at all.
+
+if not set, require redis connection at start up time. show error explicitly
+if can't connect to redis.
+
+** 2018-05-08 humanReadableSize: round up when convert byte to MiB. rd shows 377 MiB
+or just show as floating point with 1 digit after point.
+
 ** 2018-05-07 loopUntilAllBlocksReady, how to track progress?
 use a thread pool to download blocks, print overall progress when some parts
 done or some time elapsed.
@@ -417,11 +428,22 @@ that way you don't need to tell rd-server the web root dir.
 
 * current                                                             :entry:
 ** 
+** 2018-05-08 optparse-applicative can easily support parsing env variables.
+<> long "host"
+<> envvar "HOST"
+
+if envvar is not set, infer from long param.
+
+execParser can be extended to handle envvar.
+
+- check whether there is support for envvar in a pkg.
+
 ** 2018-05-08 added some progress log. download seems sequential.
 QSem based worker not effective?
 
-** 2018-05-08 humanReadableSize: round up when convert byte to MiB. rd shows 377 MiB
-or just show as floating point with 1 digit after point.
+since wait is called right away. maybe it's not.
+
+- maybe redesign this to support progress tracking and pool based download.
 
 ** 2018-05-08 when start rd-api, make error obvious if connect to redis failed.
 Current error is like this:
@@ -435,6 +457,57 @@ Current error is like this:
 try write in MaybeT
 
 * done                                                                :entry:
+** 2018-05-08 add command line parsing support for rd-api.		:doc:
+add more doc for rd-api and rd client.
+
+--host
+--port
+--web-root default current dir.
+
+description
+
+rd-api is an HTTP file server that provides static file hosting and reliable
+download api for rd client.
+
+rd-api serves files under web-root. You can use it like python3 -m http.server
+
+In addition, if rd command line tool is used to do the download, it will
+download in a reliable way by downloading in 2MiB blocks and verify checksum
+for each block.
+
+Usage:
+    server side:
+        $ ls
+        bigfile1 bigfile2
+        $ rd-api --host 0.0.0.0 --port 8082
+
+    client side:
+        $ rd http://server-ip:8082/bigfile1
+
+Reliable download is implemented this way:
+
+- user use rd client to request a resource to download.
+- rd client request resource block metadata via the /rd/ api. block metadata
+  contains block count, block id, block byte offset, block content sha1sum.
+- rd-api calculate and serve block metadata to rd client incrementally. block
+  metadata is cached in redis after calculation.
+- rd client fetch block and verify sha1sum incrementally. When all blocks are
+  downloaded and verified, combine blocks to get the final resource.
+- rd client will retry on http error or failed sha1sum verification.
+- rd client support continuing a partial download. You can press Ctrl-C to
+  stop download anytime, and continue later by running the same command again.
+
+- problems
+  - progDesc do it's own formatting.
+    or you need to write it in Doc.
+
+    https://www.stackage.org/haddock/lts-10.3/optparse-applicative-0.14.0.0/Options-Applicative.html
+
+    progDescDoc :: Maybe Doc -> InfoMod a
+
+    Text.PrettyPrint.ANSI.Leijen
+    https://www.stackage.org/haddock/lts-10.3/ansi-wl-pprint-0.6.8.1/Text-PrettyPrint-ANSI-Leijen.html#v:Doc
+
 ** 2018-05-06 write client side tool to actually do the download.
 - make this work:
   env WEB_ROOT=/home/sylecn/persist/cache stack exec rd-api
@@ -913,6 +986,50 @@ I can use haskell fork though.
 yes. see Route Patterns.
 
 * wontfix                                                             :entry:
+** 2018-05-08 better project structure.
+- rd client should not depend on warp, wai, hedis etc.
+- rd-api and rd should have different library dependencies.
+- how to serve more than one library in package.yaml?
+  do I need two libraries in this project?
+
+  move modules for rd-api to api/
+  nope. tests requires the web app. so web app needs to be in src/
+
+- info: current filesize, library includes warp, scotty.
+  #+BEGIN_SRC sh
+    sylecn@ryzen5:~/projects/reliable-download$ ll .stack-work/install/x86_64-linux-nopie/lts-10.3/8.2.2/bin/
+    total 40M
+    -rwxr-xr-x 1 sylecn sylecn  22M May  8 01:02 rd
+    -rwxr-xr-x 1 sylecn sylecn  18M May  8 01:02 rd-api
+  #+END_SRC
+- read more about hpack and cabal file.
+- ghc is smart enough to not link unused lib.
+  grep Scotty .stack-work/install/x86_64-linux-nopie/lts-10.3/8.2.2/bin/rd
+  grep Scotty .stack-work/install/x86_64-linux-nopie/lts-10.3/8.2.2/bin/rd-api
+
+  I don't need to move dependencies to executable because of final file size.
+- how to structure the project to get minimal rebuild?
+  search: cabal project structure to reduce rebuild
+
+  How to make a Haskell cabal project with library+executables that still run with runhaskell/ghci? - Stack Overflow
+  https://stackoverflow.com/questions/12305970/how-to-make-a-haskell-cabal-project-with-libraryexecutables-that-still-run-with
+  This is nice.
+
+  stck clean
+  stack build --ghc-options="-j +RTS -s -RTS"
+
+  // I didn't know stack call cabal-install more than once.
+  configure, lib, executable.
+
+  stack use -N12 by default. compile my project GC is ~1s.
+
+  try use their param
+  stack clean
+  stack build --ghc-options="-j +RTS -A128m -n2m -N6 -s -RTS"
+
+  <1s GC, but not much speed up anyway.
+- 
+
 ** 2018-05-05 calculate sha1sum for blocks using a thread pool. design try 1.
 - data protocol via redis.
   set <filepath>_blockSize_status working|done
