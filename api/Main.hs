@@ -100,4 +100,4 @@ main = runApiServer =<< execParser opts
     opts = info (argParser <**> helper)
       (  fullDesc
       <> header "rd-api - reliable download server"
-      <> (progDescDoc $ Just $ D.string rdApiDescription))
+      <> progDescDoc (Just $ D.string rdApiDescription))

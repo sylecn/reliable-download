@@ -2,7 +2,6 @@ module Opts (RDOptions(..), argParser, RDClientRuntimeConfig(..)) where
 
 import qualified Data.Text as T
 import Data.Semigroup ((<>))
-import Control.Concurrent.QSem
 
 import Options.Applicative
 
@@ -16,9 +15,8 @@ data RDOptions = RDOptions
   , verbose :: Bool
   , urls :: [T.Text] } deriving (Show)
 
-data RDClientRuntimeConfig = RDClientRuntimeConfig
-    { rdOptions :: RDOptions
-    , workerSem :: QSem }
+newtype RDClientRuntimeConfig = RDClientRuntimeConfig
+    { rdOptions :: RDOptions }
 
 argParser :: Parser RDOptions
 argParser = RDOptions

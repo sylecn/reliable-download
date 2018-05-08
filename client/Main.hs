@@ -14,8 +14,6 @@ import System.Exit
 import System.FilePath ((</>))
 import Data.Text.Encoding (decodeUtf8)
 import Control.Concurrent (threadDelay)
-import Control.Concurrent.QSem
-import Control.Concurrent.Async (async, wait)
 import Control.Monad.Trans.Maybe
 import Control.Monad.IO.Class (liftIO)
 import System.Socket (SocketException)
@@ -33,6 +31,7 @@ import Control.Retry (retrying, constantDelay, limitRetries, rsIterNumber)
 import Lib (sha1sumOnBytes, guessFilename)
 import Type
 import Opts
+import Task
 
 debug :: RDOptions -> String -> IO ()
 debug opts msg = when (verbose opts) $ putStrLn msg
@@ -108,7 +107,7 @@ getBlockFilename rdResp blockWithChecksum =
       (blockId, _, _, sha1sum) = blockWithChecksum in
   formatToString ("block" % left padding '0' % "_" % stext) blockId sha1sum
 
--- | fetch a single block, return IO True on success
+-- | fetch a single block, write block data to disk. return IO True on success
 fetchBlock :: RDOptions -> T.Text -> RDResponse -> BlockWithChecksum -> IO Bool
 fetchBlock opts url rdResp blockWithChecksum = do
   let filename = guessFilename url
@@ -130,16 +129,6 @@ fetchBlock opts url rdResp blockWithChecksum = do
         return True
     else
         retryOnFailure (blockMaxRetry opts) 1000000 $ fetchBlockFromHttp opts (FetchBlockParam url filename blockWithChecksum blockTargetFile)
-
--- | fetch block asynchronously using a worker pool
-fetchBlockAsync :: RDClientRuntimeConfig -> T.Text -> RDResponse -> BlockWithChecksum -> IO Bool
-fetchBlockAsync rc url rdResp blockWithChecksum =
-  bracket_
-    (waitQSem $ workerSem rc)
-    (signalQSem $ workerSem rc)
-    $ do
-      ar <- async $ fetchBlock (rdOptions rc) url rdResp blockWithChecksum
-      wait ar
 
 -- | return block target file names in correct order.
 getBlockTargetFilenames :: RDOptions -> RDResponse -> [FilePath]
@@ -208,6 +197,7 @@ getRDResponse _opts url = catches
 downloadFile :: RDClientRuntimeConfig -> T.Text -> MaybeT IO Bool
 downloadFile rc url = do
   let opts = rdOptions rc
+  downloadTask <- liftIO $ newTask $ workerCount opts
   rdResp <- liftIO $ getRDResponse opts url
   unless (respOk rdResp) $ do
     liftIO $ putStrLn $ "GET /rd/ api failed: " <> show (respMsg rdResp)
@@ -222,7 +212,8 @@ downloadFile rc url = do
     putStrLn $ "Downloading file: " <> show (respPath rdResp) <> ", "
              <> humanReadableSize (respFileSize rdResp)
              <> ", " <> show (respBlockCount rdResp) <> " blocks"
-    (rdResp2, results) <- loopUntilAllBlocksReady rc url rdResp []
+    rdResp2 <- loopUntilAllBlocksReady rc url rdResp [] downloadTask
+    results <- getTaskResults downloadTask
     if and results then do
       resultMaybe <- runMaybeT $ combineBlocks opts rdResp2
       return $ isJust resultMaybe
@@ -234,28 +225,31 @@ downloadFile rc url = do
 -- a GET again later and check it again. On each try, the diff of new ready
 -- blocks are sent to fetchBlock function.
 --
--- Return whether download is successful for each block.
-loopUntilAllBlocksReady :: RDClientRuntimeConfig -> T.Text -> RDResponse -> [BlockID] -> IO (RDResponse, [Bool])
-loopUntilAllBlocksReady rc url rdResp oldReadyBlocks = do
+-- block download is managed by downloadTask :: Task Bool.
+-- to supports concurrent download.
+--
+-- Return last RDResponse when all blocks are ready and sent to downloadTask.
+loopUntilAllBlocksReady :: RDClientRuntimeConfig -> T.Text -> RDResponse -> [BlockID] -> Task Bool -> IO RDResponse
+loopUntilAllBlocksReady rc url rdResp oldReadyBlocks downloadTask = do
   let blockIsReady = (/= "pending") . getBlockSha1sum
       blocks = respBlocks rdResp
       readyBlocks = filter blockIsReady blocks
       newReadyBlocks = filter ((`notElem` oldReadyBlocks) . getBlockId) readyBlocks
       allBlocksReady = all blockIsReady blocks
   putStrLn $ (show . length) newReadyBlocks <> " new block(s) ready on server side"
-  results <- mapM (fetchBlockAsync rc url rdResp) newReadyBlocks
+  addTasks downloadTask $ map (fetchBlock (rdOptions rc) url rdResp) newReadyBlocks
   if allBlocksReady then
     -- loop finished
-    return (rdResp, results)
+    return rdResp
   else do
     when (null newReadyBlocks) $ do
          putStrLn "No new blocks ready on server side, waiting 1s"
          threadDelay 1000000
     newRdResp <- getRDResponse (rdOptions rc) url
-    unless (respOk newRdResp) $ do
+    unless (respOk newRdResp) $
          putStrLn $ "getRDResponse failed: " <> T.unpack (respMsg newRdResp)
     let prevResp = if respOk newRdResp then newRdResp else rdResp
-    loopUntilAllBlocksReady rc url prevResp (map getBlockId readyBlocks)
+    loopUntilAllBlocksReady rc url prevResp (map getBlockId readyBlocks) downloadTask
 
 cliApp :: RDOptions -> IO ()
 cliApp opts = do
@@ -264,9 +258,7 @@ cliApp opts = do
   catchIOError (createDirectoryIfMissing True dir)
                (\e -> die $ "Create temp dir " <> dir <> " failed: " <> show e)
   debug opts $ "using temp dir: " <> dir
-  sem <- newQSem $ workerCount opts
-  let rc = RDClientRuntimeConfig { rdOptions=opts
-                                 , workerSem=sem}
+  let rc = RDClientRuntimeConfig { rdOptions=opts }
   -- resultsMaybe :: [Maybe Bool]
   resultsMaybe <- mapM (runMaybeT . downloadFile rc) (urls opts)
   let results = map (fromMaybe False) resultsMaybe
@@ -276,8 +268,7 @@ cliApp opts = do
       die $ (show . length . filter not) results <> " urls failed/skipped."
 
 main :: IO ()
-main = cliApp =<< execParser opts
-  where
+main = cliApp =<< execParser opts where
     opts = info (argParser <**> helper)
       (  fullDesc
       <> header "rd - reliable download command line tool"

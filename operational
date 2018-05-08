@@ -43,6 +43,17 @@ Time-stamp: <2018-05-08>
   download works perfectly.
   sha1sum for the whole file matches.
 
+- 2018-05-08 when using 5 threads for the download.
+  #+BEGIN_SRC sh
+    block 188 fetched
+    combining blocks to create /home/sylecn/d/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+    file downloaded to /home/sylecn/d/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+    all urls downloaded.
+    started at 2018-05-08 21:56:26
+    stopped at 2018-05-08 21:57:42
+    Duration: 76 seconds
+  #+END_SRC
+
 ** 2018-05-06 how to run rd-api in dev env
 - how to run rd-api
 
@@ -270,6 +281,16 @@ https://artyom.me/aeson
 ** 2018-05-06 optparse-applicative :: Stackage Server
 https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
 * later                                                               :entry:
+** 2018-05-08 optparse-applicative can easily support parsing env variables.
+<> long "host"
+<> envvar "HOST"
+
+if envvar is not set, infer from long param.
+
+execParser can be extended to handle envvar.
+
+- check whether there is support for envvar in a pkg.
+
 ** 2018-05-08 rd-api, allow serve static file without redis-server.
 --disable-rd-api
 if set, do not provides /rd/ api. just act like a static file server.
@@ -414,36 +435,15 @@ only first character is in path key.
 
   - search: haskell how to use non exported function
 
-** 2018-05-05 should rd-api serve the static file itself?
-that way you don't need to tell rd-server the web root dir.
-- normally
-  nginx serve static files under $WEB_ROOT
-
-  rd-server --web-root $WEB_ROOT
-  this serve /rd/.*, provides metadata for files.
-
-- it may be faster if you just do
-  rd-server --web-root $WEB_ROOT
-  This serves both /rd/.* and /.*
-
 * current                                                             :entry:
 ** 
-** 2018-05-08 optparse-applicative can easily support parsing env variables.
-<> long "host"
-<> envvar "HOST"
+** 2018-05-08 can I make Task to support multiple getTaskResults?
+- can I make Task to support multiple getTaskResults?
 
-if envvar is not set, infer from long param.
+  when getTaskResults is called. just reset count to 0.
+  remove the closed flag.
 
-execParser can be extended to handle envvar.
-
-- check whether there is support for envvar in a pkg.
-
-** 2018-05-08 added some progress log. download seems sequential.
-QSem based worker not effective?
-
-since wait is called right away. maybe it's not.
-
-- maybe redesign this to support progress tracking and pool based download.
+  test it.
 
 ** 2018-05-08 when start rd-api, make error obvious if connect to redis failed.
 Current error is like this:
@@ -457,6 +457,137 @@ Current error is like this:
 try write in MaybeT
 
 * done                                                                :entry:
+** 2018-05-08 added some progress log. download seems sequential.
+QSem based worker not effective?
+
+since wait is called right away. maybe it's not.
+
+- maybe redesign this to support progress tracking and pool based download.
+
+loopUntilAllBlocksReady :: [BlockID] -> IO (RDResponse, [Bool])
+
+fetchBlock :: RDOptions -> T.Text -> RDResponse -> BlockWithChecksum -> IO Bool
+
+fetchBlockFromHttp :: RDOptions -> FetchBlockParam -> IO Bool
+
+- when using async. fetchBlockAsync should return Async Bool.
+  the master thread should call wait later and call
+  (signalQSem $ workerSem rc) to release resource.
+
+  it's not easy to control it.
+  waitAny, waitBoth doesn't scale to more than 2 async operations.
+  I can't write waitAll, because waitAny doesn't allow me to do that.
+
+  confirmed I can't use async here.
+
+- bug in existing code:
+  loopUntilAllBlocksReady
+  results <- mapM (fetchBlockAsync rc url rdResp) newReadyBlocks
+  the results are ignored when allBlocksReady is false.
+
+  In the final recursive call, the code doesn't check results for all
+  blocks. only the last round newReadyBlocks.
+
+- add in runtimeConfiguration
+  MVar (HashMap String DownloadStatus)
+
+  {url: {allBlocks: [BlockWithChecksum],  -- all blocks, some sha1sum may be pending
+         readyBlocks: [BlockWithChecksum],  -- block sha1sum ready
+         fetchedBlocks: [BlockWithChecksum, Bool]} -- fetched blocks and fetch result.
+
+  downloadFile rc url will add an entry in the hashmap.
+  loopUntilAllBlocksReady will modify the entry in the hashmap.
+
+  downloadFile will handle the final result.
+
+  a progress shower can run periodically. fetch the MVar without popping it.
+  download status:
+  urls: total 1, downloading 1, pending 0.
+  url "xxx" blocks: fetched 128/253 (58%)[, failed xxx.]
+  url "xxx" blocks: fetched 253/253 (100%)
+  When all url fetched, progressShower should quit.
+
+- how to do concurrent download?
+
+  still not clear.
+  see client/Download.hs
+  laziness worked fine with QSem and async.
+
+  supervisor can accumulate Async Bool, then mapM (wait and signalQSem) on the
+  result. I think this is good enough for my use case.
+
+  moved test code into a project:
+  ~/haskell/testing/io-thread-pool/app/Main.hs
+
+- bad news, sometimes it deadlocks.
+
+  is it because rts -N option? yes. no error when -N is not used.
+  - -rtsopts
+  - -with-rtsopts=-N
+
+  #+BEGIN_SRC sh
+  downloadAll3
+  fetching url1
+  fetching url2
+  fetching url6
+  fetching url8
+  t1: thread blocked indefinitely in an STM transaction
+  #+END_SRC
+
+  #+BEGIN_SRC sh
+  downloadAll2
+  fetching url1
+  fetching url2
+  fetching url4
+  fetching url3
+  fetching url6
+  fetching url8
+  t1: thread blocked indefinitely in an STM transaction
+  #+END_SRC
+
+  #+BEGIN_SRC sh
+  downloadAll3
+  fetching url1
+  fetching url3
+  fetching url2
+  fetching url4
+  fetching url6
+  fetching url7
+  t1: thread blocked indefinitely in an STM transaction
+  #+END_SRC
+
+  both downloadAll2 and downloadAll3 has dead lock.
+
+  I see the problem.
+
+  both replicateM and mapM iterate over the Async Bool sequentially. when
+  running concurrently, if "url7" grab QSem before "url6", the program may
+  wait for "url6" forever, when url7 has finished, but it has no chance of
+  returning the QSem.
+
+  so this definitely doesn't work.
+
+  result should not be checked in enqueue order. it should be checked on first
+  finish, first check order. I can use a result queue to do that.
+
+- downloadAll4
+
+  rewrite using jobChan and resultChan works. see
+  ~/haskell/testing/io-thread-pool/app/UseTwoChans.hs
+
+  abstract this to re-usable lib. see
+  ~/haskell/testing/io-thread-pool/app/Task.hs
+  ~/haskell/testing/io-thread-pool/app/UseTask.hs
+
+  it works.
+
+- can I make Task to support multiple getTaskResults?
+
+  when getTaskResults is called. just reset count to 0.
+  remove the closed flag.
+
+  test it.
+
 ** 2018-05-08 add command line parsing support for rd-api.		:doc:
 add more doc for rd-api and rd client.
 
@@ -986,6 +1117,18 @@ I can use haskell fork though.
 yes. see Route Patterns.
 
 * wontfix                                                             :entry:
+** 2018-05-05 should rd-api serve the static file itself?
+that way you don't need to tell rd-server the web root dir.
+- normally
+  nginx serve static files under $WEB_ROOT
+
+  rd-server --web-root $WEB_ROOT
+  this serve /rd/.*, provides metadata for files.
+
+- it may be faster if you just do
+  rd-server --web-root $WEB_ROOT
+  This serves both /rd/.* and /.*
+
 ** 2018-05-08 better project structure.
 - rd client should not depend on warp, wai, hedis etc.
 - rd-api and rd should have different library dependencies.
