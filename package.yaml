@@ -1,5 +1,5 @@
 name:                reliable-download
-version:             0.2.0.0
+version:             0.2.0.1
 synopsis:            provide reliable download service via HTTP
 description:         reliable-download web application and cli tool
 homepage:            "https://github.com/sylecn/reliable-download#readme"
@@ -66,6 +66,7 @@ executables:
     - retry
     - transformers
     - socket
+    - io-thread-pool
     ghc-options:
     - -threaded
 
