@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2018-05-08>
+Time-stamp: <2018-05-09>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2018-05-08 example run in prod env
@@ -316,42 +316,6 @@ done or some time elapsed.
   a mapM is not enough to do this.
 - 
 
-** 2018-05-05 add logging support
-- hslogger
-  http://hackage.haskell.org/package/hslogger-1.2.10/docs/System-Log-Logger.html
-  http://hackage.haskell.org/package/hslogger
-
-  doesn't support printf style param?
-- How do I do logging in Haskell? - Stack Overflow
-  https://stackoverflow.com/questions/6310961/how-do-i-do-logging-in-haskell
-  says hslogger is not good.
-  slow and not extensible.
-- logger
-  http://hackage.haskell.org/package/logger-0.1.0.2
-  not maintained anymore?
-  dependencies requires base <=4.9
-  lts-10.3 has base 4.10.1.0
-
-- check pkg list.
-  https://www.stackage.org/lts-10.3
-
-- fast-logger 2.4.10
-  kazu-yamamoto/logger: A fast logging system for Haskell
-  https://github.com/kazu-yamamoto/logger
-
-  tinylog :: Stackage Server
-  https://www.stackage.org/lts-10.3/package/tinylog-0.14.0
-  Simplistic logging using fast-logger.
-
-- log-base :: Stackage Server
-  https://www.stackage.org/package/log-base
-  Structured logging solution (base package) https://github.com/scrive/log
-
-- try log-base
-  it supports stdout, ES, pg.
-  it supports lts-11.x
-  it supports log levels.
-
 ** 2018-05-05 allow config app at runtime.
 via env var and command line parameter.
 
@@ -437,7 +401,42 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
-** 2018-05-08 fix logging, clean up rd-api GET /rd/ handler.
+* done                                                                :entry:
+** 2018-05-05 add logging support
+- hslogger
+  http://hackage.haskell.org/package/hslogger-1.2.10/docs/System-Log-Logger.html
+  http://hackage.haskell.org/package/hslogger
+
+  doesn't support printf style param?
+- How do I do logging in Haskell? - Stack Overflow
+  https://stackoverflow.com/questions/6310961/how-do-i-do-logging-in-haskell
+  says hslogger is not good.
+  slow and not extensible.
+- logger
+  http://hackage.haskell.org/package/logger-0.1.0.2
+  not maintained anymore?
+  dependencies requires base <=4.9
+  lts-10.3 has base 4.10.1.0
+
+- check pkg list.
+  https://www.stackage.org/lts-10.3
+
+- fast-logger 2.4.10
+  kazu-yamamoto/logger: A fast logging system for Haskell
+  https://github.com/kazu-yamamoto/logger
+
+  tinylog :: Stackage Server
+  https://www.stackage.org/lts-10.3/package/tinylog-0.14.0
+  Simplistic logging using fast-logger.
+
+- log-base :: Stackage Server
+  https://www.stackage.org/package/log-base
+  Structured logging solution (base package) https://github.com/scrive/log
+
+- try log-base
+  it supports stdout, ES, pg.
+  it supports lts-11.x
+  it supports log levels.
 
 ** 2018-05-08 when start rd-api, make error obvious if connect to redis failed.
 Current error is like this:
@@ -450,7 +449,8 @@ Current error is like this:
 ** 2018-05-08 mkApp has shifting to the right problem.
 try write in MaybeT
 
-* done                                                                :entry:
+** 2018-05-08 fix logging, clean up rd-api GET /rd/ handler.
+
 ** 2018-05-08 can I make Task to support multiple getTaskResults?
 - can I make Task to support multiple getTaskResults?
 

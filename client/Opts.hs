@@ -4,6 +4,7 @@ import qualified Data.Text as T
 import Data.Semigroup ((<>))
 
 import Options.Applicative
+import qualified System.Logger as L
 
 data RDOptions = RDOptions
   { blockMaxRetry :: Int
@@ -15,8 +16,9 @@ data RDOptions = RDOptions
   , verbose :: Bool
   , urls :: [T.Text] } deriving (Show)
 
-newtype RDClientRuntimeConfig = RDClientRuntimeConfig
-    { rdOptions :: RDOptions }
+data RDClientRuntimeConfig = RDClientRuntimeConfig
+    { rdOptions :: RDOptions
+    , rdLogger :: L.Logger }
 
 argParser :: Parser RDOptions
 argParser = RDOptions

@@ -27,14 +27,36 @@ import Network.HTTP.Simple
 import Network.HTTP.Client (path, responseStatus)
 import Formatting hiding (bytes)
 import Control.Retry (retrying, constantDelay, limitRetries, rsIterNumber)
+import qualified System.Logger as L
 
 import Lib (sha1sumOnBytes, guessFilename)
+import Utils
 import Type
 import Opts
 import Task
 
-debug :: RDOptions -> String -> IO ()
-debug opts msg = when (verbose opts) $ putStrLn msg
+-- | log a msg using given log level
+clientLogl :: L.Level -> RDClientRuntimeConfig -> T.Text -> IO ()
+clientLogl level rc msg = do
+  let logger = rdLogger rc
+  L.log logger level $ L.msg msg
+  L.flush logger
+
+-- | log a debug msg
+debugl :: RDClientRuntimeConfig -> T.Text -> IO ()
+debugl = clientLogl L.Debug
+
+-- | log an info msg
+infol :: RDClientRuntimeConfig -> T.Text -> IO ()
+infol = clientLogl L.Info
+
+-- | log an warn msg
+warnl :: RDClientRuntimeConfig -> T.Text -> IO ()
+warnl = clientLogl L.Warn
+
+-- | log an error msg
+errorl :: RDClientRuntimeConfig -> T.Text -> IO ()
+errorl = clientLogl L.Error
 
 -- | convert byte number to MiB. small number will become 0.
 humanReadableSize :: Integer -> String
@@ -55,49 +77,50 @@ data FetchBlockParam = FetchBlockParam {
 -- delay is in microseconds.
 --
 -- this function only capture HttpException in action op.
-retryOnFailure :: Int -> Int -> IO Bool -> IO Bool
-retryOnFailure times delay op = retrying policy checker wrappedAction where
+retryOnFailure :: RDClientRuntimeConfig -> Int -> Int -> IO Bool -> IO Bool
+retryOnFailure rc times delay op = retrying policy checker wrappedAction where
   policy = constantDelay delay <> limitRetries times
   checker _rs = return . not
   wrappedAction rs = do
     when (rsIterNumber rs > 0)
-         (putStrLn $ "retrying for the " <> show (rsIterNumber rs) <> " time")
+         (errorl rc $ "retrying for the " <> showt (rsIterNumber rs) <> " time")
     op `catches` [Handler (\ (e :: HttpException) -> do
-                             print $ "got HttpException: " <> show e
+                             errorl rc $ "got HttpException: " <> showt e
                              return False)
                  ,Handler (\ (e :: IOException) -> do
-                             print $ "got IOException: " <> show e
+                             errorl rc $ "got IOException: " <> showt e
                              return False)
                  ,Handler (\ (e :: SocketException) -> do
-                             print $ "got SocketException: " <> show e
+                             errorl rc $ "got SocketException: " <> showt e
                              return False)]
 
 -- | try fetch block data from http, if fetched data matches sha1sum, write it
 -- to blockTargetFile and return IO True. Otherwise, return IO False.
-fetchBlockFromHttp :: RDOptions -> FetchBlockParam -> IO Bool
-fetchBlockFromHttp opts fbp = do
+fetchBlockFromHttp :: RDClientRuntimeConfig -> FetchBlockParam -> IO Bool
+fetchBlockFromHttp rc fbp = do
   let (blockId, start, end, sha1sum) = fbpBlockWithChecksum fbp
       filename = fbpFilename fbp
       rangeHeader = "bytes=" <> Char8.pack (show start) <> "-"
                              <> Char8.pack (show end)
   assert (sha1sum /= "pending") (return ())
-  debug opts $ "downloading " <> filename <> " block " <> show blockId
+  debugl rc $ "downloading " <> showt filename <> " block " <> showt blockId
   req <- parseRequest $ T.unpack $ fbpUrl fbp
   response <- httpLBS $ addRequestHeader "Range" rangeHeader req
   let statuscode = statusCode $ responseStatus response
-  if statuscode /= 206 then do
-      putStrLn $ "get block " <> show blockId <> " failed, HTTP status code is " <> show statuscode
+  -- for small files, range may cover all bytes, result status is 200.
+  if statuscode `notElem` [206, 200] then do
+      errorl rc $ "get block " <> showt blockId <> " failed, HTTP status code is " <> showt statuscode
       return False
   else do
       let bodyLBS = getResponseBody response
       if (decodeUtf8 . LB.toStrict . sha1sumOnBytes) bodyLBS == sha1sum then do
           let blockTargetFile = fbpBlockTargetFile fbp
-          debug opts $ "writing block data to " <> blockTargetFile
+          debugl rc $ "writing block data to " <> showt blockTargetFile
           LB.writeFile blockTargetFile bodyLBS
-          putStrLn $ "block " <> show blockId <> " fetched"
+          infol rc $ "block " <> showt blockId <> " fetched"
           return True
       else do
-          putStrLn $ "sha1sum verification failed for " <> filename <> " block " <> show blockId <> ", expect " <> show sha1sum
+          errorl rc $ "sha1sum verification failed for " <> showt filename <> " block " <> showt blockId <> ", expect " <> showt sha1sum
           return False
 
 -- | return block target file name (just base filename, no dir info)
@@ -108,9 +131,10 @@ getBlockFilename rdResp blockWithChecksum =
   formatToString ("block" % left padding '0' % "_" % stext) blockId sha1sum
 
 -- | fetch a single block, write block data to disk. return IO True on success
-fetchBlock :: RDOptions -> T.Text -> RDResponse -> BlockWithChecksum -> IO Bool
-fetchBlock opts url rdResp blockWithChecksum = do
-  let filename = guessFilename url
+fetchBlock :: RDClientRuntimeConfig -> T.Text -> RDResponse -> BlockWithChecksum -> IO Bool
+fetchBlock rc url rdResp blockWithChecksum = do
+  let opts = rdOptions rc
+      filename = guessFilename url
       blockFileDir = tempDir opts </> filename
       blockFilename = getBlockFilename rdResp blockWithChecksum
       blockTargetFile = blockFileDir </> blockFilename
@@ -119,7 +143,7 @@ fetchBlock opts url rdResp blockWithChecksum = do
               createDirectoryIfMissing True blockFileDir
               return True)
             (\e -> do
-               putStrLn $ "Create temp dir " <> blockFileDir <> " failed: " <> show e
+               errorl rc $ "Create temp dir " <> showt blockFileDir <> " failed: " <> showt e
                return False)
   if not result then
       return False
@@ -128,7 +152,7 @@ fetchBlock opts url rdResp blockWithChecksum = do
     if fileExist then
         return True
     else
-        retryOnFailure (blockMaxRetry opts) 1000000 $ fetchBlockFromHttp opts (FetchBlockParam url filename blockWithChecksum blockTargetFile)
+        retryOnFailure rc (blockMaxRetry opts) 1000000 $ fetchBlockFromHttp rc (FetchBlockParam url filename blockWithChecksum blockTargetFile)
 
 -- | return block target file names in correct order.
 getBlockTargetFilenames :: RDOptions -> RDResponse -> [FilePath]
@@ -147,9 +171,10 @@ getTargetFilename opts rdResp =
 
 -- | combine downloaded blocks to the final file. let MaybeT finish with Just
 -- on success.
-combineBlocks :: RDOptions -> RDResponse -> MaybeT IO ()
-combineBlocks opts rdResp = do
-  let (filename, targetFilename) = getTargetFilename opts rdResp
+combineBlocks :: RDClientRuntimeConfig -> RDResponse -> MaybeT IO ()
+combineBlocks rc rdResp = do
+  let opts = rdOptions rc
+      (filename, targetFilename) = getTargetFilename opts rdResp
   fileExist <- liftIO $ doesFileExist targetFilename
   when (forceOverwrite opts && fileExist) $ do
       result <- liftIO $ catchIOError
@@ -157,37 +182,37 @@ combineBlocks opts rdResp = do
           removeFile targetFilename
           return True)
         (\e -> do
-           putStrLn $ "remove existing file failed: " <> show e
+           errorl rc $ "remove existing file failed: " <> showt e
            return False)
       unless result mzero
   liftIO $ do
-    putStrLn $ "combining blocks to create " <> targetFilename
+    infol rc $ "combining blocks to create " <> showt targetFilename
     forM_ (getBlockTargetFilenames opts rdResp) $ \blockFilename -> do
-      debug opts $ "appending block file " <> blockFilename
+      debugl rc $ "appending block file " <> showt blockFilename
       content <- LB.readFile blockFilename
       LB.appendFile targetFilename content  -- TODO how to handle error here?
                                             -- let it crash?
-    putStrLn $ "file downloaded to " <> targetFilename
+    infol rc $ "file downloaded to " <> showt targetFilename
     unless (keepBlockData opts) $ do
       let tempdir = tempDir opts </> filename
-      debug opts $ "delete temporary block data dir " <> tempdir
+      debugl rc $ "delete temporary block data dir " <> showt tempdir
       catchIOError (removeDirectoryRecursive tempdir)
-                   (\e -> putStrLn $ "Warning: delete temp block data dir failed: " <> show e)
+                   (\e -> warnl rc $ "Warning: delete temp block data dir failed: " <> showt e)
 
 -- | call /rd/<file> api and fetch response
-getRDResponse :: RDOptions -> T.Text -> IO RDResponse
-getRDResponse _opts url = catches
+getRDResponse :: RDClientRuntimeConfig -> T.Text -> IO RDResponse
+getRDResponse rc url = catches
   (do
     req <- parseRequest $ T.unpack url
     resp <- httpJSON $ req { path="/rd" <> path req }
     return $ getResponseBody resp)
    [Handler (\ (e :: HttpException) -> do
-               putStrLn $ "getRDResponse HttpException: " <> show e
+               errorl rc $ "getRDResponse HttpException: " <> showt e
                return $ rdErrorResponse {
                             respOk=False
                           , respMsg="got HttpException " <> T.pack (show e)})
    ,Handler (\ (e :: JSONException) -> do
-               putStrLn $ "getRDResponse JSONException: " <> show e
+               errorl rc $ "getRDResponse JSONException: " <> showt e
                return $ rdErrorResponse {
                             respOk=False
                           , respMsg="json decode failed: " <> T.pack (show e)})]
@@ -198,27 +223,27 @@ downloadFile :: RDClientRuntimeConfig -> T.Text -> MaybeT IO Bool
 downloadFile rc url = do
   let opts = rdOptions rc
   downloadTask <- liftIO $ newTask $ workerCount opts
-  rdResp <- liftIO $ getRDResponse opts url
+  rdResp <- liftIO $ getRDResponse rc url
   unless (respOk rdResp) $ do
-    liftIO $ putStrLn $ "GET /rd/ api failed: " <> show (respMsg rdResp)
+    liftIO $ errorl rc $ "GET /rd/ api failed: " <> showt (respMsg rdResp)
     mzero
-  liftIO $ putStrLn "GET /rd/ api ok"
+  liftIO $ infol rc "GET /rd/ api ok"
   let (_filename, targetFilename) = getTargetFilename opts rdResp
   fileExist <- liftIO $ doesFileExist targetFilename
   when (fileExist && not (forceOverwrite opts)) $ do
-    liftIO $ putStrLn $ "Warning: skip already existing file " <> targetFilename <> ", use -f to force overwrite"
+    liftIO $ warnl rc $ "Warning: skip already existing file " <> showt targetFilename <> ", use -f to force overwrite"
     mzero
   liftIO $ do
-    putStrLn $ "Downloading file: " <> show (respPath rdResp) <> ", "
-             <> humanReadableSize (respFileSize rdResp)
-             <> ", " <> show (respBlockCount rdResp) <> " blocks"
+    infol rc $ "Downloading file: " <> respPath rdResp <> ", "
+             <> T.pack (humanReadableSize (respFileSize rdResp))
+             <> ", " <> showt (respBlockCount rdResp) <> " blocks"
     rdResp2 <- loopUntilAllBlocksReady rc url rdResp [] downloadTask
     results <- getTaskResults downloadTask
     if and results then do
-      resultMaybe <- runMaybeT $ combineBlocks opts rdResp2
+      resultMaybe <- runMaybeT $ combineBlocks rc rdResp2
       return $ isJust resultMaybe
     else do
-      putStrLn $ (show . length . filter id) results <> " blocks failed."
+      errorl rc $ (showt . length . filter id) results <> " blocks failed."
       return False
 
 -- | a sleep loop that check whether all blocks in rdResp is ready, if not, do
@@ -236,36 +261,47 @@ loopUntilAllBlocksReady rc url rdResp oldReadyBlocks downloadTask = do
       readyBlocks = filter blockIsReady blocks
       newReadyBlocks = filter ((`notElem` oldReadyBlocks) . getBlockId) readyBlocks
       allBlocksReady = all blockIsReady blocks
-  putStrLn $ (show . length) newReadyBlocks <> " new block(s) ready on server side"
-  addTasks downloadTask $ map (fetchBlock (rdOptions rc) url rdResp) newReadyBlocks
+  infol rc $ (showt . length) newReadyBlocks <> " new block(s) ready on server side"
+  addTasks downloadTask $ map (fetchBlock rc url rdResp) newReadyBlocks
   if allBlocksReady then
     -- loop finished
     return rdResp
   else do
     when (null newReadyBlocks) $ do
-         putStrLn "No new blocks ready on server side, waiting 1s"
+         infol rc "No new blocks ready on server side, waiting 1s"
          threadDelay 1000000
-    newRdResp <- getRDResponse (rdOptions rc) url
+    newRdResp <- getRDResponse rc url
     unless (respOk newRdResp) $
-         putStrLn $ "getRDResponse failed: " <> T.unpack (respMsg newRdResp)
+         errorl rc $ "getRDResponse failed: " <> respMsg newRdResp
     let prevResp = if respOk newRdResp then newRdResp else rdResp
     loopUntilAllBlocksReady rc url prevResp (map getBlockId readyBlocks) downloadTask
 
 cliApp :: RDOptions -> IO ()
 cliApp opts = do
-  debug opts $ "command line options: " <> show opts
+  let level = if verbose opts then L.Debug else L.Info
+      -- Note: tinylog doesn't support non-GMT dateformat.
+      logSettings = (L.setFormat (Just "%0H:%0M:%0S") .
+                     L.setLogLevel level .
+                     L.setDelimiter "  ")
+                    L.defSettings
+  logger <- L.new logSettings
+  let rc = RDClientRuntimeConfig { rdOptions=opts
+                                 , rdLogger=logger}
+  debugl rc $ "command line options: " <> showt opts
   let dir = tempDir opts
   catchIOError (createDirectoryIfMissing True dir)
-               (\e -> die $ "Create temp dir " <> dir <> " failed: " <> show e)
-  debug opts $ "using temp dir: " <> dir
-  let rc = RDClientRuntimeConfig { rdOptions=opts }
+               (\e -> do
+                  errorl rc $ "Create temp dir " <> showt dir <> " failed: " <> showt e
+                  exitFailure)
+  debugl rc $ "using temp dir: " <> showt dir
   -- resultsMaybe :: [Maybe Bool]
   resultsMaybe <- mapM (runMaybeT . downloadFile rc) (urls opts)
   let results = map (fromMaybe False) resultsMaybe
   if and results then
-      putStrLn "all urls downloaded."
-  else
-      die $ (show . length . filter not) results <> " urls failed/skipped."
+      infol rc "all urls downloaded."
+  else do
+      errorl rc $ (showt . length . filter not) results <> " urls failed/skipped."
+      exitFailure
 
 main :: IO ()
 main = cliApp =<< execParser opts where
