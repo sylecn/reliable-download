@@ -3,6 +3,19 @@
 Time-stamp: <2018-05-09>
 #+STARTUP: content
 * notes                                                               :entry:
+** 2018-05-09 how to release latest code on PyPI?
+- update version number in package.yaml, src/CliVersion.hs
+- build binary
+  stack build --test
+  stack exec hlint -- src api client
+- release binary on PyPI
+  export TWINE_PASSWORD=xxx
+  make all -C pypi
+
+  To release only the server or client:
+  make api -C pypi
+  make client -C pypi
+
 ** 2018-05-08 example run in prod env
 - try it on de03
 
