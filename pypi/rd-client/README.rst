@@ -29,7 +29,7 @@ Baisc Usage
 
 server side (requires rd-api_):
 
-.. code-block:: sh
+.. code-block:: bash
 
    $ ls
    bigfile1 bigfile2
@@ -37,7 +37,7 @@ server side (requires rd-api_):
 
 client side:
 
-.. code-block:: sh
+.. code-block:: bash
 
    $ rd http://server-ip:8082/bigfile1
 
@@ -51,6 +51,6 @@ see rd-api_.
 ChangeLog
 ---------
 
-* v1.0.0.2 2018-05-09
+* v1.0.0.3 2018-05-09
 
   - init release.

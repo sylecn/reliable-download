@@ -30,6 +30,7 @@ import Control.Retry (retrying, constantDelay, limitRetries, rsIterNumber)
 import qualified System.Logger as L
 
 import Lib (sha1sumOnBytes, guessFilename)
+import CliVersion (cliVersion)
 import Utils
 import Type
 import Opts
@@ -268,7 +269,7 @@ loopUntilAllBlocksReady rc url rdResp oldReadyBlocks downloadTask = do
     return rdResp
   else do
     when (null newReadyBlocks) $ do
-         infol rc "No new blocks ready on server side, waiting 1s"
+         infol rc "No new block ready on server side, waiting 1s"
          threadDelay 1000000
     newRdResp <- getRDResponse rc url
     unless (respOk newRdResp) $
@@ -307,7 +308,7 @@ main :: IO ()
 main = do
   opts <- execParser parserInfo
   if showVersion opts then
-      putStrLn "rd 1.0.0.0"
+      putStrLn $ "rd " <> cliVersion
   else
     if null $ urls opts then do
       putStrLn "No URLs given, nothing to do. See rd --help"

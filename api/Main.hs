@@ -18,6 +18,7 @@ import qualified Database.Redis as R
 import qualified Text.PrettyPrint.ANSI.Leijen as D
 
 import Config
+import CliVersion (cliVersion)
 import Utils
 import Opts (argParser)
 import OptsDoc (rdApiDescription)
@@ -69,7 +70,7 @@ main :: IO ()
 main = do
   rdConfig <- execParser opts
   if showVersion rdConfig then
-      putStrLn "rd-api 1.0.0.0"
+      putStrLn $ "rd-api " <> cliVersion
   else do
     resultMaybe <- runMaybeT $ runApiServer rdConfig
     when (isNothing resultMaybe) $

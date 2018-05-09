@@ -2,7 +2,7 @@ module Lib
     ( sha1sum
     , sha1sumOnBytes
     , guessFilename
-    , genBlocks)
+    , genBlocks )
 where
 
 import qualified Data.Text as T
