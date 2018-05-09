@@ -1,5 +1,6 @@
 module Type where
 
+import qualified Data.ByteString as B
 import qualified Data.Text as T
 
 import Data.Aeson
@@ -15,6 +16,15 @@ getBlockSha1sum (_, _, _, sha1sum) = sha1sum
 -- | fetch blockId from BlockWithChecksum
 getBlockId :: BlockWithChecksum -> BlockID
 getBlockId (blockId, _, _, _) = blockId
+
+fileStatusWorking :: B.ByteString
+fileStatusWorking = "working"
+
+fileStatusError :: B.ByteString
+fileStatusError = "error"
+
+fileStatusDone :: B.ByteString
+fileStatusDone = "done"
 
 data FillBlockParam = FillBlockParam {
       fbpFilepath :: FilePath

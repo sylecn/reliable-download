@@ -1,5 +1,5 @@
 name:                reliable-download
-version:             0.2.0.1
+version:             0.2.1.0
 synopsis:            provide reliable download service via HTTP
 description:         reliable-download web application and cli tool
 homepage:            "https://github.com/sylecn/reliable-download#readme"
@@ -23,26 +23,32 @@ default-extensions:
 
 dependencies:
   - base >= 4.7 && < 5
+  # project specific
   - scotty
   - wai
   - warp
-  # - wai-app-static
   - wai-middleware-static
   - hedis
-  - directory
   - cryptohash
-  - bytestring
-  - text
   - byteable
-  - aeson
   - network
-  - log-base
-  - formatting
+  - ansi-wl-pprint
+  # file system
+  - directory
   - filepath
   - unix
+  # data types
+  - bytestring
+  - text
   - unordered-containers
+  - aeson
+  - extra
+  # general utils
+  - transformers
   - optparse-applicative
-  - ansi-wl-pprint
+  - formatting
+  - fast-logger
+  - errors
 
 library:
   source-dirs: src
@@ -64,7 +70,6 @@ executables:
     - http-client
     - http-types
     - retry
-    - transformers
     - socket
     - io-thread-pool
     ghc-options:

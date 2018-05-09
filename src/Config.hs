@@ -6,6 +6,8 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as Char8
 import Data.Monoid ((<>))
 
+import System.Log.FastLogger
+
 import Type
 
 -- | rd-api configuration, supports cli arguments or env variable.
@@ -22,7 +24,8 @@ data RDRuntimeConfig = RDRuntimeConfig {
       rcConfig :: RDConfig
     , rcRedisConn :: R.Connection
     , rcFileChan :: Chan FillBlockParam
-    }
+    , rcLoggerSet :: LoggerSet
+    , rcLoggerTimeCache :: IO FormattedTime }
 
 defaultRDConfig :: RDConfig
 defaultRDConfig = RDConfig {
@@ -33,6 +36,19 @@ defaultRDConfig = RDConfig {
                   , webRoot = "/nonexistent"
                   , fileWorkerCount = 2
                   }
+
+defaultRDRuntimeConfig :: IO RDRuntimeConfig
+defaultRDRuntimeConfig = do
+  conn <- R.connect R.defaultConnectInfo
+  fileChan <- newChan
+  loggerSet <- newStdoutLoggerSet defaultBufSize
+  loggerTimeCache <- newTimeCache simpleTimeFormat
+  return RDRuntimeConfig {
+               rcConfig=defaultRDConfig
+             , rcRedisConn=conn
+             , rcFileChan=fileChan
+             , rcLoggerSet=loggerSet
+             , rcLoggerTimeCache=loggerTimeCache }
 
 -- | the redis hash key used to store cached sha1sum for given FillBlockParam
 blockSha1sumHashKey :: FillBlockParam -> B.ByteString

@@ -437,13 +437,7 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
-** 2018-05-08 can I make Task to support multiple getTaskResults?
-- can I make Task to support multiple getTaskResults?
-
-  when getTaskResults is called. just reset count to 0.
-  remove the closed flag.
-
-  test it.
+** 2018-05-08 fix logging, clean up rd-api GET /rd/ handler.
 
 ** 2018-05-08 when start rd-api, make error obvious if connect to redis failed.
 Current error is like this:
@@ -457,6 +451,14 @@ Current error is like this:
 try write in MaybeT
 
 * done                                                                :entry:
+** 2018-05-08 can I make Task to support multiple getTaskResults?
+- can I make Task to support multiple getTaskResults?
+
+  when getTaskResults is called. just reset count to 0.
+  remove the closed flag.
+
+  test it.
+
 ** 2018-05-08 added some progress log. download seems sequential.
 QSem based worker not effective?
 

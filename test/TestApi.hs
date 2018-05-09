@@ -9,14 +9,12 @@ import Network.HTTP.Types (status200, encodePathSegments, decodePathSegments)
 import Data.Binary.Builder (toLazyByteString)
 import Network.Wai (Application)
 import System.FilePath
-import Control.Concurrent.Chan
 import System.Directory (removeFile)
 
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Text as T
 import qualified Data.HashMap.Strict as H
-import qualified Database.Redis as R
 
 import Config
 import Lib (sha1sumOnBytes, guessFilename, genBlocks)
@@ -117,11 +115,8 @@ getPath = get . LB.toStrict . toLazyByteString . encodePathSegments
 
 waiApp :: IO Application
 waiApp = do
-   conn <- R.connect R.defaultConnectInfo
-   fileChan <- newChan
-   mkWaiApp RDRuntimeConfig { rcConfig=defaultRDConfig
-                            , rcRedisConn=conn
-                            , rcFileChan=fileChan }
+   rc <- defaultRDRuntimeConfig
+   mkWaiApp rc
 
 apiSpec :: Spec
 apiSpec = with waiApp $ do

@@ -9,12 +9,14 @@ import Control.Applicative ((<$>))
 import Control.Concurrent (forkIO)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
+import qualified Data.Text as T
 
 import qualified Database.Redis as R
 
 import Type
 import Config
 import Lib (sha1sumOnBytes)
+import Utils
 
 -- | read file range data as LB.ByteString. handle must be a handle to an
 -- opened file.
@@ -38,24 +40,24 @@ sha1sumFileRange filepath start end = sha1sumOnBytes <$> fileRange filepath star
 -- | a file worker fetch FillBlockParam from fileChan, then calculate sha1sum
 -- for all blocks and write result to redis. then mark the file as done.
 fileWorker :: RDRuntimeConfig -> IO ()
-fileWorker runtimeConfig = forever $ do
-  putStrLn "fileWorker is waiting for jobs..."
-  fbp <- readChan (rcFileChan runtimeConfig)
+fileWorker rc = forever $ do
+  logl rc ("fileWorker is waiting for jobs..." :: T.Text)
+  fbp <- readChan (rcFileChan rc)
   let filepath = fbpFilepath fbp
-      conn = rcRedisConn runtimeConfig
+      conn = rcRedisConn rc
   -- calculate sha1sum for each block and write result to redis hash
-  putStrLn $ "fileWorker working on " <> filepath
+  logl rc $ "fileWorker working on " <> showt filepath
   results <- withBinaryFile filepath ReadMode $ \handle -> do
     let hashKey = blockSha1sumHashKey fbp
     mapM (calculateSha1ForBlock conn hashKey handle) (fbpBlocks fbp)
-  let resultStatus = if and results then "done" else "error"
+  let resultStatus = if and results then fileStatusDone else fileStatusError
   redisReply <- R.runRedis conn $ R.set (fileStatusKey fbp) resultStatus
   case redisReply of
     Left reply ->
-      putStrLn $ "set file status failed: " <> show reply
+      logl rc $ "set file status failed: " <> showt reply
     Right _ -> do
-      putStrLn $ "set file status to " <> show resultStatus <> " for " <> filepath
-      putStrLn $ "fileWorker done for " <> filepath
+      logl rc $ "set file status to " <> showt resultStatus <> " for " <> showt filepath
+      logl rc $ "fileWorker done for " <> showt filepath
   return ()
     where
       -- | calculate sha1 for a single block. return IO True on success.
@@ -64,12 +66,12 @@ fileWorker runtimeConfig = forever $ do
         redisReply <- R.runRedis conn $ R.hget hashKey (blockIdKey blockId)
         case redisReply of
           Left reply -> do
-            putStrLn $ "redis hget failed on " <> show hashKey <> ": " <> show reply
+            logl rc $ "redis hget failed on " <> showt hashKey <> ": " <> showt reply
             return False
           Right sha1sumMaybe ->
             case sha1sumMaybe of
               Just _sha1sum -> do
-                putStrLn $ "skip calculated block " <> show blockId
+                logl rc $ "skip calculated block " <> showt blockId
                 return True
               Nothing -> do
                 blockContent <- fileRangeH handle start end
@@ -77,18 +79,18 @@ fileWorker runtimeConfig = forever $ do
                 redisReply2 <- R.runRedis conn $ R.hset hashKey (blockIdKey blockId) blockSha1
                 case redisReply2 of
                   Left reply -> do
-                    putStrLn $ "redis hset failed on " <> show hashKey <> ": " <> show reply
+                    logl rc $ "redis hset failed on " <> showt hashKey <> ": " <> showt reply
                     return False
                   Right bool ->
                     if bool then
                       do
-                        putStrLn $ "redis hset " <> show hashKey <> " " <> show blockId <> " ok"
+                        logl rc $ "redis hset " <> showt hashKey <> " " <> showt blockId <> " ok"
                         return True
                      else
                         return False
 
 startWorkers :: RDRuntimeConfig -> IO ()
-startWorkers runtimeConfig = do
-  let workerCount = fileWorkerCount $ rcConfig runtimeConfig
-  putStrLn $ "creating " <> show workerCount <> " file worker(s)"
-  replicateM_ workerCount (forkIO $ fileWorker runtimeConfig)
+startWorkers rc = do
+  let workerCount = fileWorkerCount $ rcConfig rc
+  logl rc $ "creating " <> showt workerCount <> " file worker(s)"
+  replicateM_ workerCount (forkIO $ fileWorker rc)
