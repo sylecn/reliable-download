@@ -419,6 +419,35 @@ I remember there are tools that can simulate packet loss.
 policy in ovs can do it.
 
 * done                                                                :entry:
+** 2018-05-09 distribute on pypi.
+- problems
+  - project description is not parsed as rst.
+    do I need to include README.rst in the package?
+    see how wells did it.
+
+    can't see what's wrong.
+
+  - there is a test site for PyPI.
+    https://packaging.python.org/tutorials/distributing-packages/#uploading-your-project-to-pypi
+
+    Note Before releasing on main PyPI repo, you might prefer training with
+    the PyPI test site which is cleaned on a semi regular basis. See Using
+    TestPyPI on how to setup your configuration in order to use it.
+
+    https://test.pypi.org/project/rd/
+
+    it just doesn't render it as rst.
+
+  - search: pypi doesn't render long_description as rst
+
+    pypi.python.org does not properly render rst readmes · Issue #619 · pypa/pypi-legacy
+    https://github.com/pypa/pypi-legacy/issues/619
+
+    python3 -m pip install --user readme_renderer
+    python3 setup.py check -r -s
+
+    pypi doesn't like embedded URIs.
+
 ** 2018-05-09 how to distribute the binary?
 - build it on an older system, maybe in docker.
 - distribute binary publicly.
