@@ -304,8 +304,18 @@ cliApp opts = do
       exitFailure
 
 main :: IO ()
-main = cliApp =<< execParser opts where
-    opts = info (argParser <**> helper)
+main = do
+  opts <- execParser parserInfo
+  if showVersion opts then
+      putStrLn "rd 1.0.0.0"
+  else
+    if null $ urls opts then do
+      putStrLn "No URLs given, nothing to do. See rd --help"
+      exitFailure
+    else
+      cliApp opts
+  where
+    parserInfo = info (argParser <**> helper)
       (  fullDesc
       <> header "rd - reliable download command line tool"
-      <> progDesc "Download large files across GFW reliably. Requires using rd-api on server side. For more information, see rd-api --help")
+      <> progDesc "Download large files across slow and unstable network reliably. Requires using rd-api on server side. For more information, see rd-api --help")

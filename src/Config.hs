@@ -18,7 +18,7 @@ data RDConfig = RDConfig {
     , redisPort :: Int
     , webRoot :: FilePath
     , fileWorkerCount :: Int
-    } deriving (Show)
+    , showVersion :: Bool } deriving (Show)
 
 data RDRuntimeConfig = RDRuntimeConfig {
       rcConfig :: RDConfig
@@ -35,6 +35,7 @@ defaultRDConfig = RDConfig {
                   , redisPort = 6379
                   , webRoot = "/nonexistent"
                   , fileWorkerCount = 2
+                  , showVersion = False
                   }
 
 defaultRDRuntimeConfig :: IO RDRuntimeConfig

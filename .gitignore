@@ -1,2 +1,7 @@
 .stack-work/
 *.cabal
+dist/
+build/
+*.egg-info/
+pypi/rd-client/rdclient/rd
+pypi/rd-api/rdapi/rd-api

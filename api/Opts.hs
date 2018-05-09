@@ -48,3 +48,7 @@ argParser = RDConfig
       <> showDefault
       <> value 2
       <> metavar "INT")
+  <*> switch
+      (  long "version"
+      <> short 'V'
+      <> help "show program version and exit" )

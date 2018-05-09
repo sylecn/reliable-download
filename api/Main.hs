@@ -68,11 +68,14 @@ runApiServer rdConfig = do
 main :: IO ()
 main = do
   rdConfig <- execParser opts
-  resultMaybe <- runMaybeT $ runApiServer rdConfig
-  when (isNothing resultMaybe) $
+  if showVersion rdConfig then
+      putStrLn "rd-api 1.0.0.0"
+  else do
+    resultMaybe <- runMaybeT $ runApiServer rdConfig
+    when (isNothing resultMaybe) $
       die "start rd-api failed"
-  where
-    opts = info (argParser <**> helper)
-                (  fullDesc
-                <> header "rd-api - reliable download server"
-                <> progDescDoc (Just $ D.string rdApiDescription))
+    where
+      opts = info (argParser <**> helper)
+                  (  fullDesc
+                  <> header "rd-api - reliable download server"
+                  <> progDescDoc (Just $ D.string rdApiDescription))

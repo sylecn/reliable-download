@@ -14,6 +14,7 @@ data RDOptions = RDOptions
   , workerCount :: Int
   , forceOverwrite :: Bool
   , verbose :: Bool
+  , showVersion :: Bool
   , urls :: [T.Text] } deriving (Show)
 
 data RDClientRuntimeConfig = RDClientRuntimeConfig
@@ -65,4 +66,8 @@ argParser = RDOptions
       <> short 'v'
       <> help "show more debug message"
       <> showDefault )
-  <*> some (argument str (metavar "URL..."))
+  <*> switch
+      (  long "version"
+      <> short 'V'
+      <> help "show version number and exit" )
+  <*> many (argument str (metavar "URL..."))

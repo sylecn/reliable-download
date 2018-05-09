@@ -401,7 +401,52 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
+** 2018-05-09 test the app under unstable network.
+I remember there are tools that can simulate packet loss.
+policy in ovs can do it.
+
 * done                                                                :entry:
+** 2018-05-09 how to distribute the binary?
+- build it on an older system, maybe in docker.
+- distribute binary publicly.
+
+- If I distribute on hackage, cabal install can get it.
+  but cabal is not on every system and it is not easy to install cabal itself.
+- how about distribute on PyPI?
+  pip install rd-api
+  pip install rd
+
+  that looks nice.
+
+- try it
+  cd ./pypi/rd-client/
+  make dist
+  file size is nice. 4.7M whl.
+  python3 -m pip install --user dist/rd-1.0.0-py2.py3-none-any.whl
+  rd --help
+
+  it works.
+
+- DONE create pypi project for rd-api.
+- DONE make setup.py use version in package.yaml.
+- this whole thing (distribute binary on pypi) can be automated.
+
+  distribute-binary --name rd --version xx /path/to/rd
+
+  But I do need the metadata, like author, maintainer, classifiers etc.
+  so won't abstract this.
+- 
+
+** 2018-05-09 support --version in rd-api and rd.
+- problems
+  - rd --version will fail because there is no URL given.
+    change some URL... to many.
+
+    use either parser?
+    could be --version or normal options.
+
+    change some to many is easier.
+
 ** 2018-05-05 add logging support
 - hslogger
   http://hackage.haskell.org/package/hslogger-1.2.10/docs/System-Log-Logger.html
