@@ -3,7 +3,7 @@ module Main (main) where
 import Data.String (fromString)
 import System.Environment (lookupEnv)
 import Data.Monoid ((<>))
-import Control.Monad (mzero, when)
+import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import System.Directory (setCurrentDirectory)
 
@@ -11,7 +11,6 @@ import Network.Wai.Handler.Warp
 import Formatting
 import Network.Wai.Middleware.Static
 import Options.Applicative
-import System.Log.FastLogger
 import Control.Error
 import System.Exit (die)
 import qualified Database.Redis as R
@@ -42,18 +41,27 @@ runApiServer rdConfig = do
             R.connectHost=redisHost config
           , R.connectPort=R.PortNumber (fromIntegral (redisPort config))
           }
-  conn <- case connEi of
+  connMaybe <- case connEi of
     Left e -> do
-      liftIO $ pushLogStrLn (rcLoggerSet rc0) $ toLogStr $ sformat
-        ("Connect to redis at " % string % ":" % int % " failed: " % stext)
-        (redisHost config) (redisPort config) e
-      mzero
+      liftIO $ do
+        logl rc0 $ sformat
+          ("Connect to redis at " % string % ":" % int % " failed: " % stext)
+          (redisHost config) (redisPort config) e
+        logl rc0 $ sformat "No redis, GET /rd/ api disabled, acting as static file server"
+      return Nothing
     Right conn ->
-      return conn
-  let rc = rc0 { rcConfig=config
-               , rcRedisConn=conn }
+      return $ Just conn
+  let rc = case connMaybe of
+             Nothing -> rc0 { rcConfig=config
+                            , rcHasRedis=False }
+             Just conn -> rc0 { rcConfig=config
+                              , rcHasRedis=True
+                              , rcRedisConn=conn }
   liftIO $ do
-    startWorkers rc
+    if rcHasRedis rc then
+        startWorkers rc
+    else
+        logl rc $ sformat "No redis, not starting workers"
     logl rc $ sformat ("webRoot is " % string) (webRoot config)
     logl rc $ sformat ("will listen on " % string % ":" % int) (host config) (port config)
     let warpSettings = ( setFdCacheDuration 10

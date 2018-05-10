@@ -304,14 +304,6 @@ execParser can be extended to handle envvar.
 
 - check whether there is support for envvar in a pkg.
 
-** 2018-05-08 rd-api, allow serve static file without redis-server.
---disable-rd-api
-if set, do not provides /rd/ api. just act like a static file server.
-this does not require redis at all.
-
-if not set, require redis connection at start up time. show error explicitly
-if can't connect to redis.
-
 ** 2018-05-07 loopUntilAllBlocksReady, how to track progress?
 use a thread pool to download blocks, print overall progress when some parts
 done or some time elapsed.
@@ -416,6 +408,19 @@ I remember there are tools that can simulate packet loss.
 policy in ovs can do it.
 
 * done                                                                :entry:
+** 2018-05-08 rd-api, allow serve static file without redis-server.
+--disable-rd-api
+if set, do not provides /rd/ api. just act like a static file server.
+this does not require redis at all.
+
+if not set, require redis connection at start up time. show error explicitly
+if can't connect to redis.
+
+- 2018-05-10 just return error if there is no redis connection.
+  add a runtimeConfig that is a Maybe R.Connection.
+
+  don't start workers if no redis connection.
+
 ** 2018-05-08 humanReadableSize: round up when convert byte to MiB. rd shows 377 MiB
 or just show as floating point with 1 digit after point.
 

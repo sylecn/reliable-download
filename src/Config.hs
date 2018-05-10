@@ -23,6 +23,7 @@ data RDConfig = RDConfig {
 data RDRuntimeConfig = RDRuntimeConfig {
       rcConfig :: RDConfig
     , rcRedisConn :: R.Connection
+    , rcHasRedis :: Bool
     , rcFileChan :: Chan FillBlockParam
     , rcLoggerSet :: LoggerSet
     , rcLoggerTimeCache :: IO FormattedTime }
@@ -47,6 +48,7 @@ defaultRDRuntimeConfig = do
   return RDRuntimeConfig {
                rcConfig=defaultRDConfig
              , rcRedisConn=conn
+             , rcHasRedis=True
              , rcFileChan=fileChan
              , rcLoggerSet=loggerSet
              , rcLoggerTimeCache=loggerTimeCache }

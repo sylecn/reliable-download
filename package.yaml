@@ -1,5 +1,5 @@
 name:                reliable-download
-version:             1.0.1.0
+version:             1.0.2.0
 synopsis:            provide reliable download service via HTTP
 description:         reliable-download web application and cli tool
 homepage:            "https://github.com/sylecn/reliable-download#readme"

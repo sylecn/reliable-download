@@ -8,7 +8,7 @@ import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8)
 import Control.Concurrent.Chan
 import System.IO.Error (catchIOError)
-import Control.Monad (when)
+import Control.Monad (when, unless)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
@@ -73,6 +73,8 @@ processNewFileAsyncMaybe rc fbp = do
 -- | GET /rd/.* handler
 getRdHandler :: RDRuntimeConfig -> ExceptT T.Text ActionM ()
 getRdHandler rc = do
+  unless (rcHasRedis rc) $
+      throwE "No redis connection, GET /rd/ disabled"
   path <- lift $ param "1"
 
   let filepath = webRoot (rcConfig rc) </> T.unpack path
