@@ -7,7 +7,8 @@ Time-stamp: <2018-05-10>
 - update version number in package.yaml, src/CliVersion.hs
 - build binary
   stack build --test
-  stack exec hlint -- src api client
+  stack exec hlint -- -g
+- update README file
 - release binary on PyPI
   export TWINE_PASSWORD=xxx
   make all -C pypi

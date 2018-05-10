@@ -76,6 +76,11 @@ easy installation on linux system. Reliable download only runs in linux.
 ChangeLog
 ---------
 
+* v1.1.0.0 2018-05-10
+
+  - feature: support passing arguments using env variables, for cli arg --redis-host, the env variable will be REDIS_HOST.
+  - bugfix: fix cli argument parsing for string types
+
 * v1.0.0.3 2018-05-09
 
   - update installation doc, rd-api requires redis server
