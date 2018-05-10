@@ -17,7 +17,7 @@ import qualified Data.Text as T
 import qualified Data.HashMap.Strict as H
 
 import Config
-import Lib (sha1sumOnBytes, guessFilename, genBlocks)
+import Lib (sha1sumOnBytes, guessFilename, genBlocks, humanReadableSize)
 import Worker (fileRange, sha1sumFileRange)
 import App (mkWaiApp)
 
@@ -71,6 +71,15 @@ spec = do
          removeFile "/home/sylecn/d/t2.out"
          return result
       contentLB `shouldBe` "abcdef"
+
+  describe "humanReadableSize" $ do
+    it "should work" $ do
+      humanReadableSize 123 `shouldBe` "0.0 MiB"
+      humanReadableSize 1048576 `shouldBe` "1.0 MiB"
+      humanReadableSize 1048579 `shouldBe` "1.0 MiB"
+      humanReadableSize (1048576 * 2) `shouldBe` "2.0 MiB"
+      humanReadableSize 1572864 `shouldBe` "1.5 MiB"
+      humanReadableSize 1572865 `shouldBe` "1.5 MiB"
 
   describe "sha1sumOnBytes" $ do
     it "should work" $ do

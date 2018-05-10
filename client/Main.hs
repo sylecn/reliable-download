@@ -25,11 +25,11 @@ import qualified Data.ByteString.Char8 as Char8
 import Network.HTTP.Types (statusCode)
 import Network.HTTP.Simple
 import Network.HTTP.Client (path, responseStatus)
-import Formatting hiding (bytes)
+import Formatting
 import Control.Retry (retrying, constantDelay, limitRetries, rsIterNumber)
 import qualified System.Logger as L
 
-import Lib (sha1sumOnBytes, guessFilename)
+import Lib (sha1sumOnBytes, guessFilename, humanReadableSize)
 import CliVersion (cliVersion)
 import Utils
 import Type
@@ -58,10 +58,6 @@ warnl = clientLogl L.Warn
 -- | log an error msg
 errorl :: RDClientRuntimeConfig -> T.Text -> IO ()
 errorl = clientLogl L.Error
-
--- | convert byte number to MiB. small number will become 0.
-humanReadableSize :: Integer -> String
-humanReadableSize bytes = show (bytes `div` 1048576) <> " MiB"
 
 -- | best padding for this many blocks
 bestPadding :: Integer -> Int
@@ -236,7 +232,7 @@ downloadFile rc url = do
     mzero
   liftIO $ do
     infol rc $ "Downloading file: " <> respPath rdResp <> ", "
-             <> T.pack (humanReadableSize (respFileSize rdResp))
+             <> humanReadableSize (respFileSize rdResp)
              <> ", " <> showt (respBlockCount rdResp) <> " blocks"
     rdResp2 <- loopUntilAllBlocksReady rc url rdResp [] downloadTask
     results <- getTaskResults downloadTask

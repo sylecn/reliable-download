@@ -2,7 +2,8 @@ module Lib
     ( sha1sum
     , sha1sumOnBytes
     , guessFilename
-    , genBlocks )
+    , genBlocks
+    , humanReadableSize )
 where
 
 import qualified Data.Text as T
@@ -10,8 +11,14 @@ import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LTE
 import qualified Data.ByteString.Lazy as LB
 import Crypto.Hash (digestToHexByteString, hashlazy, Digest, SHA1)
+import Formatting hiding (bytes)
 
 import Type
+
+-- | convert byte number to MiB. small number will become 0.
+humanReadableSize :: Integer -> T.Text
+humanReadableSize bytes = sformat (fixed 1 % " MiB")
+                          (fromInteger bytes / (1048576 :: Double))
 
 -- | get sha1sum hex string for given bytes
 sha1sumOnBytes :: LB.ByteString -> LB.ByteString
