@@ -294,16 +294,6 @@ https://artyom.me/aeson
 ** 2018-05-06 optparse-applicative :: Stackage Server
 https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
 * later                                                               :entry:
-** 2018-05-08 optparse-applicative can easily support parsing env variables.
-<> long "host"
-<> envvar "HOST"
-
-if envvar is not set, infer from long param.
-
-execParser can be extended to handle envvar.
-
-- check whether there is support for envvar in a pkg.
-
 ** 2018-05-07 loopUntilAllBlocksReady, how to track progress?
 use a thread pool to download blocks, print overall progress when some parts
 done or some time elapsed.
@@ -326,7 +316,80 @@ via env var and command line parameter.
 - REDIS_HOST
 - REDIS_PORT
 - WEB_ROOT    web root dir, HTTP Path will be relative to this dir.
-- 
+- WORKER
+
+- 2018-05-10 I'm trying to write my parser for parsing env var, just like
+  optparse-applicative.
+
+  see ~/haskell/env-var-parser/src/Lib.hs
+
+  it is difficult. I can parse a single parameter easily, but I don't know how
+  to compose parsers to parse more complex data structure. read more about
+  optparse-applicative. I can't understand the source code without more
+  reading.
+
+  pcapriotti/optparse-applicative: Applicative option parser
+  https://github.com/pcapriotti/optparse-applicative
+
+  An applicative Parser is essentially a heterogeneous list or tree of
+  Options, implemented with existential types.
+
+  See this blog post for a more detailed explanation based on a simplified
+  implementation.
+
+  Applicative option parser
+  https://paolocapriotti.com/blog/2012/04/27/applicative-option-parser/
+  it requires usage of GADTs, that's why I don't understand it on first look.
+
+  The ConsP constructor is the combination of an Option returning a function,
+  and an arbitrary parser returning an argument for that function. The
+  combined parser applies the function to the argument and returns a result.
+
+  the ConsP constructor is where all magic happen.
+  I can't define a data structure like this myself.
+  because I don't understand what it is.
+
+  In the end, the applicative is defined on the list structure. Not on any
+  option itself. when creating parser, you are creating a list. see option and
+  optionR. list is easily an instance of functor and applicative.
+
+  I think I can make it work on env variable, although I can't write this code
+  myself.
+
+- how it constructs a value for any data type? I think the Applicative Parser
+  already make that work.
+
+  how to do error handling for "parse" failures? just return Nothing.
+
+  how to make all fields optional? if key not found, just return Nothing for
+  that field.
+
+- I think it really should happen inside optparse-applicative. otherwise
+  default value, parsing data is duplicated.
+
+  but that will be too difficult for me. This is the first time I see GADT
+  used. and first time I see a value can be constructed for any data type.
+
+  // wait. about "a value can be constructed for any data type", in non-record
+  syntax, it's just a normal function call. should be easy to construct value
+  using code.
+
+- for my use case, I will just write non-portable functions.
+  allow config rd-api using env variable.
+
+  - how to construct a data value not using the constructor? just do a regular
+    function call. the data constructor is a function.
+
+  - can I update all records using: config1 {config2}? no.
+
+  - how to clean it up, remove intermediate variables.
+
+- test these commands:
+  stack exec rd-api -- --host=127.0.0.1 --port=8060
+  env HOST=127.0.0.1 PORT=8060 stack exec rd-api
+  env HOST=127.0.1.1 PORT=8061 stack exec rd-api -- --host=127.0.0.1 --port=8060
+  env HOST=127.0.1.1 PORT=abc stack exec rd-api -- --host=127.0.0.1 --port=8060
+  env WORKER=1 stack exec rd-api
 
 ** 2018-05-05 utf-8 character not working well in path.
 curl http://localhost:8082/rd/%E4%B8%AD%E6%96%87%E6%96%87%E4%BB%B6%E5%90%8D.rar
@@ -403,6 +466,17 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
+** 2018-05-10 use a proper module hierarchy.
+import RD.Utils
+import RD.Api.Lib
+import RD.Api.Config
+import RD.Client.Lib
+import RD.Client.Opts
+
+- stack repl doesn't like duplicated Lib module. also for libs, correct mdoule
+  hierarchy is important.
+- 
+
 ** 2018-05-09 test the app under unstable network.
 I remember there are tools that can simulate packet loss.
 policy in ovs can do it.
@@ -1211,6 +1285,34 @@ I can use haskell fork though.
 yes. see Route Patterns.
 
 * wontfix                                                             :entry:
+** 2018-05-08 optparse-applicative can easily support parsing env variables.
+<> long "host"
+<> envvar "HOST"
+
+if envvar is not set, infer from long param.
+
+execParser can be extended to handle envvar.
+
+- check whether there is support for envvar in a pkg.
+
+- 2018-05-10 check implementation of
+  execParser
+
+  I have a Parser RDConfig, I can run it again to fill in env variable
+  parameters.
+
+  rdConfig0 <- execParser opts
+  rdConfig <- execParserEnvVar argParser rdConfig0
+
+  overwrite the config if it is defined in env variable.
+
+  https://www.stackage.org/haddock/lts-10.3/optparse-applicative-0.14.0.0/src/Options.Applicative.Internal.html#runP
+  runP (P p) = runReader . flip runStateT [] . runExceptT $ p
+
+  that's too complicated for me. seems not customizable.
+
+- maybe do it without relying on optparse-applicative.
+
 ** 2018-05-05 should rd-api serve the static file itself?
 that way you don't need to tell rd-server the web root dir.
 - normally

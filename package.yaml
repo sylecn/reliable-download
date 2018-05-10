@@ -1,5 +1,5 @@
 name:                reliable-download
-version:             1.0.2.0
+version:             1.1.0.0
 synopsis:            provide reliable download service via HTTP
 description:         reliable-download web application and cli tool
 homepage:            "https://github.com/sylecn/reliable-download#readme"
@@ -54,6 +54,13 @@ library:
   source-dirs: src
 
 executables:
+  maybet:
+    source-dirs:      misc/maybet
+    main:             Main.hs
+    dependencies:
+    - reliable-download
+    ghc-options:
+    - -threaded
   rd-api:
     source-dirs:      api
     main:             Main.hs
@@ -78,7 +85,7 @@ executables:
 
 tests:
   all-tests:
-    main: TestApi.hs
+    main: Main.hs
     source-dirs: test
     dependencies:
     - reliable-download

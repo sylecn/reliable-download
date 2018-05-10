@@ -1,4 +1,6 @@
--- module TestApi (main) where
+module TestApi
+    ( spec
+    , apiSpec ) where
 
 -- GET /rd/some_complicated_url_safe_text
 
@@ -54,7 +56,7 @@ spec = do
   describe "3rd party libs" $ do
 
     it "should encode and decode utf-8 characters in URL" $ do
-      ((decodePathSegments . LB.toStrict . toLazyByteString . encodePathSegments) ["中文1", "路径2"]) `shouldBe` ["中文1", "路径2"]
+      (decodePathSegments . LB.toStrict . toLazyByteString . encodePathSegments) ["中文1", "路径2"] `shouldBe` ["中文1", "路径2"]
 
     it "should combine dir and relative file path correctly" $ do
       combine "/var/www/foo" "t1" `shouldBe` "/var/www/foo/t1"
@@ -124,7 +126,7 @@ getPath = get . LB.toStrict . toLazyByteString . encodePathSegments
 
 waiApp :: IO Application
 waiApp = do
-   rc <- defaultRDRuntimeConfig
+   rc <- defaultRDRuntimeConfig defaultRDConfig
    mkWaiApp rc
 
 apiSpec :: Spec
@@ -133,10 +135,10 @@ apiSpec = with waiApp $ do
     it "has health check" $ do
       resp <- get "/rd/"
       liftIO (simpleStatus resp `shouldBe` status200)
-      liftIO ((jsonKeyAsBool resp "ok") `shouldBe` Just True)
+      liftIO (jsonKeyAsBool resp "ok" `shouldBe` Just True)
       -- liftIO (shouldSatisfy 1 (\x -> True))
-      liftIO ((fmap (T.isInfixOf "reliable-download")
-                    (jsonKeyAsText resp "app"))
+      liftIO (fmap (T.isInfixOf "reliable-download")
+                   (jsonKeyAsText resp "app")
               `shouldBe` Just True)
 
     it "only respond with /rd/ prefix" $ do
@@ -146,35 +148,30 @@ apiSpec = with waiApp $ do
     it "should parse basic path correctly" $ do
       _resp <- get "/test/rd/abc"
       liftIO (simpleStatus _resp `shouldBe` status200)
-      liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
-      liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "abc")
+      liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
+      liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "abc")
       _resp <- get "/test/rd/abc/def"
       liftIO (simpleStatus _resp `shouldBe` status200)
-      liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
-      liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "abc/def")
+      liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
+      liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "abc/def")
       _resp <- get "/test/rd/abc/def/"
       liftIO (simpleStatus _resp `shouldBe` status200)
-      liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
-      liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "abc/def/")
+      liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
+      liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "abc/def/")
 
     it "should parse complex path correctly" $ do
       _resp <- getPath ["test", "rd", "abc def # ? ghi"]
       liftIO (simpleStatus _resp `shouldBe` status200)
-      liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
-      liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "abc def # ? ghi")
+      liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
+      liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "abc def # ? ghi")
 
       _resp <- getPath ["test", "rd", "abc/def.jpg"]
       liftIO (simpleStatus _resp `shouldBe` status200)
-      liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
-      liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "abc/def.jpg")
+      liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
+      liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "abc/def.jpg")
 
       -- TODO the escape sequences is not supported by warp.
       -- _resp <- getPath ["test", "rd", "中文文件名.rar"]
       -- liftIO (simpleStatus _resp `shouldBe` status200)
-      -- liftIO ((jsonKeyAsBool _resp "ok") `shouldBe` Just True)
-      -- liftIO ((jsonKeyAsText _resp "path") `shouldBe` Just "中文文件名.rar")
-
-main :: IO ()
-main = do
-  hspec spec
-  hspec apiSpec
+      -- liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
+      -- liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "中文文件名.rar")

@@ -1,11 +1,13 @@
 module Main (main) where
 
 import Data.String (fromString)
-import System.Environment (lookupEnv)
+import System.Environment (getEnvironment)
 import Data.Monoid ((<>))
 import Control.Monad (when)
 import Control.Monad.IO.Class (liftIO)
 import System.Directory (setCurrentDirectory)
+import Data.Maybe (fromJust)
+import qualified Data.Text as T
 
 import Network.Wai.Handler.Warp
 import Formatting
@@ -24,19 +26,39 @@ import OptsDoc (rdApiDescription)
 import App (mkWaiApp)
 import Worker (startWorkers)
 
--- TODO use a proper config lib.
--- TODO support other env variables.
-updateRDConfigFromEnv :: RDConfig -> IO RDConfig
+-- | convert Maybe String to Maybe Int
+toIntMaybe :: Maybe String -> Maybe Int
+toIntMaybe Nothing = Nothing
+toIntMaybe (Just s) = case reads s of
+                        [(i, [])] -> Just i
+                        _ -> Nothing
+
+updateRDConfigFromEnvPure :: [(String, String)] -> RDConfig -> Either T.Text RDConfig
+updateRDConfigFromEnvPure env = Right
+    .(\c -> maybe c (\h -> c { host=h }) (lookup "HOST" env))
+    .(\c -> maybe c (\p -> c { port=p }) (toIntMaybe (lookup "PORT" env)))
+    .(\c -> maybe c (\h -> c { redisHost=h }) (lookup "REDIS_HOST" env))
+    .(\c -> maybe c (\p -> c { redisPort=p }) (toIntMaybe (lookup "REDIS_PORT" env)))
+    .(\c -> maybe c (\d -> c { webRoot=d }) (lookup "WEB_ROOT" env))
+    .(\c -> maybe c (\i -> c { fileWorkerCount=i }) (toIntMaybe (lookup "WORKER" env)))
+
+-- | update RDConfig if some env variables are defined.
+-- return IO (Right RDConfig) on success
+updateRDConfigFromEnv :: RDConfig -> IO (Either T.Text RDConfig)
 updateRDConfigFromEnv config = do
-  webroot <- lookupEnv "WEB_ROOT"
-  return $ case webroot of
-             Just dir -> config {webRoot=dir}
-             Nothing -> config
+  alist <- getEnvironment
+  return $ updateRDConfigFromEnvPure alist config
 
 runApiServer :: RDConfig -> MaybeT IO ()
 runApiServer rdConfig = do
-  rc0 <- liftIO defaultRDRuntimeConfig
-  config <- liftIO $ updateRDConfigFromEnv rdConfig
+  rc0 <- liftIO $ defaultRDRuntimeConfig rdConfig
+  configE <- liftIO $ updateRDConfigFromEnv rdConfig
+  configMaybe <- case configE of
+    Left e -> do
+      liftIO $ logl rc0 $ sformat ("Error: some config from env variable failed to parse: " % stext) e
+      return Nothing
+    Right config -> return $ Just config
+  let config = fromJust configMaybe
   connEi <- runExceptT $ scriptIO $ R.checkedConnect $ R.defaultConnectInfo {
             R.connectHost=redisHost config
           , R.connectPort=R.PortNumber (fromIntegral (redisPort config))

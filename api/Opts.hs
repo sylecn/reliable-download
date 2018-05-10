@@ -8,7 +8,7 @@ import Config
 
 argParser :: Parser RDConfig
 argParser = RDConfig
-  <$> option auto
+  <$> strOption
       (  long "host"
       <> short 'h'
       <> help "http listen host"
@@ -22,7 +22,7 @@ argParser = RDConfig
       <> showDefault
       <> value 8082
       <> metavar "PORT" )
-  <*> option auto
+  <*> strOption
       (  long "redis-host"
       <> help "redis host"
       <> showDefault
@@ -34,7 +34,7 @@ argParser = RDConfig
       <> showDefault
       <> value 6379
       <> metavar "REDIS_PORT" )
-  <*> option auto
+  <*> strOption
       (  long "web-root"
       <> short 'd'
       <> help "web root directory"

@@ -1,3 +1,5 @@
+-- | Lib contains functions that is useful for current project.
+
 module Lib
     ( sha1sum
     , sha1sumOnBytes

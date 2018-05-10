@@ -39,14 +39,14 @@ defaultRDConfig = RDConfig {
                   , showVersion = False
                   }
 
-defaultRDRuntimeConfig :: IO RDRuntimeConfig
-defaultRDRuntimeConfig = do
+defaultRDRuntimeConfig :: RDConfig -> IO RDRuntimeConfig
+defaultRDRuntimeConfig config = do
   conn <- R.connect R.defaultConnectInfo
   fileChan <- newChan
   loggerSet <- newStdoutLoggerSet defaultBufSize
   loggerTimeCache <- newTimeCache simpleTimeFormat
   return RDRuntimeConfig {
-               rcConfig=defaultRDConfig
+               rcConfig=config
              , rcRedisConn=conn
              , rcHasRedis=True
              , rcFileChan=fileChan

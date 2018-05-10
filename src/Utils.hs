@@ -1,3 +1,5 @@
+-- | Utils contains general functions that is useful for all haskell projects.
+
 module Utils where
 
 import Data.Semigroup ((<>))
