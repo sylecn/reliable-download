@@ -2,8 +2,8 @@ module Main (main) where
 
 import Data.String (fromString)
 import System.Environment (getEnvironment)
-import Data.Monoid ((<>))
-import Control.Monad (when)
+import Data.Semigroup ((<>))
+import Control.Monad (mzero, when)
 import Control.Monad.IO.Class (liftIO)
 import System.Directory (setCurrentDirectory)
 import Data.Maybe (fromJust)
@@ -26,21 +26,35 @@ import OptsDoc (rdApiDescription)
 import App (mkWaiApp)
 import Worker (startWorkers)
 
--- | convert Maybe String to Maybe Int
-toIntMaybe :: Maybe String -> Maybe Int
-toIntMaybe Nothing = Nothing
-toIntMaybe (Just s) = case reads s of
-                        [(i, [])] -> Just i
-                        _ -> Nothing
+-- | parse int env var, if it exists and is an int, return Right (Just i).
+-- if it exists and doesn't parse, return Left msg with key and value info.
+-- otherwise, return Right Nothing.
+parseIntEnv :: String -> [(String, String)] -> Either T.Text (Maybe Int)
+parseIntEnv key env =
+  case lookup key env of
+    Nothing -> Right Nothing
+    Just s -> case reads s of
+                  [(i, [])] -> Right $ Just i
+                  _ -> Left $ "failed to parse " <> T.pack key <> " from env variable: " <> T.pack s
 
 updateRDConfigFromEnvPure :: [(String, String)] -> RDConfig -> Either T.Text RDConfig
-updateRDConfigFromEnvPure env = Right
-    .(\c -> maybe c (\h -> c { host=h }) (lookup "HOST" env))
-    .(\c -> maybe c (\p -> c { port=p }) (toIntMaybe (lookup "PORT" env)))
-    .(\c -> maybe c (\h -> c { redisHost=h }) (lookup "REDIS_HOST" env))
-    .(\c -> maybe c (\p -> c { redisPort=p }) (toIntMaybe (lookup "REDIS_PORT" env)))
-    .(\c -> maybe c (\d -> c { webRoot=d }) (lookup "WEB_ROOT" env))
-    .(\c -> maybe c (\i -> c { fileWorkerCount=i }) (toIntMaybe (lookup "WORKER" env)))
+updateRDConfigFromEnvPure env c0 =
+  (\c -> Right $ maybe c (\h -> c { host=h }) (lookup "HOST" env)) c0 >>=
+  (\c -> either
+           Left
+           (maybe (Right c) (\i -> Right $ c { port=i }))
+           (parseIntEnv "PORT" env)) >>=
+  (\c -> Right $ maybe c (\h -> c { redisHost=h })
+                 (lookup "REDIS_HOST" env)) >>=
+  (\c -> either
+           Left
+           (maybe (Right c) (\i -> Right $ c { redisPort=i }))
+           (parseIntEnv "REDIS_PORT" env)) >>=
+  (\c -> Right $ maybe c (\d -> c { webRoot=d }) (lookup "WEB_ROOT" env)) >>=
+  (\c -> either
+           Left
+           (maybe (Right c) (\i -> Right $ c { fileWorkerCount=i }))
+           (parseIntEnv "WORKER" env))
 
 -- | update RDConfig if some env variables are defined.
 -- return IO (Right RDConfig) on success
@@ -55,8 +69,8 @@ runApiServer rdConfig = do
   configE <- liftIO $ updateRDConfigFromEnv rdConfig
   configMaybe <- case configE of
     Left e -> do
-      liftIO $ logl rc0 $ sformat ("Error: some config from env variable failed to parse: " % stext) e
-      return Nothing
+      liftIO $ logl rc0 $ sformat ("Error: " % stext) e
+      mzero    -- early exit
     Right config -> return $ Just config
   let config = fromJust configMaybe
   connEi <- runExceptT $ scriptIO $ R.checkedConnect $ R.defaultConnectInfo {
