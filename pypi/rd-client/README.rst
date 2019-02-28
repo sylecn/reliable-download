@@ -2,13 +2,13 @@ rd - reliable download command line tool
 ========================================
 
 .. image:: https://img.shields.io/pypi/v/rd.svg
-    :target: https://pypi.python.org/pypi/rd
+    :target: https://pypi.org/project/rd/
 
 .. image:: https://img.shields.io/pypi/l/rd.svg
-    :target: https://pypi.python.org/pypi/rd
+    :target: https://pypi.org/project/rd/
 
 .. image:: https://img.shields.io/pypi/wheel/rd.svg
-    :target: https://pypi.python.org/pypi/rd
+    :target: https://pypi.org/project/rd/
 
 Download large files across slow and unstable network reliably. Requires using
 rd-api on server side. For more information on how it works, see rd-api_.

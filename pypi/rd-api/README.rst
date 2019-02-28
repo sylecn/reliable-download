@@ -3,14 +3,14 @@ rd-api - reliable download server
 
 .. version
 .. image:: https://img.shields.io/pypi/v/rd-api.svg
-    :target: https://pypi.python.org/pypi/rd-api/
+    :target: https://pypi.org/project/rd-api/
 
 .. license
 .. image:: https://img.shields.io/pypi/l/rd-api.svg
-    :target: https://pypi.python.org/pypi/rd-api/
+    :target: https://pypi.org/project/rd-api/
 
 .. image:: https://img.shields.io/pypi/wheel/rd-api.svg
-    :target: https://pypi.python.org/pypi/rd-api/
+    :target: https://pypi.org/project/rd-api/
 
 rd-api is an HTTP file server that provides static file hosting and reliable
 download api for `rd client`_.
@@ -31,7 +31,7 @@ To install this package:
 
 .. code-block:: bash
 
-   $ sudo apt install -y redis-server   # redis is used to cached block sha1sum
+   $ sudo apt install -y redis-server   # redis is used to cache block sha1sum
    $ pip install --user rd-api
    $ rd-api --help
    $ ~/.local/bin/rd-api --help     # if ~/.local/bin/ is not in PATH

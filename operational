@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2018-05-11>
+Time-stamp: <2019-02-28>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2018-05-09 how to release latest code on PyPI?
@@ -499,6 +499,14 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
+** 2019-02-28 bug: rd-api -d java/
+option -d: cannot parse value `java/'
+
+- stack exec rd-api -- -d t1/
+  this works fine.
+
+  probably a python wrapper issue.
+
 ** 2018-05-10 use a proper module hierarchy.
 import RD.Utils
 import RD.Api.Lib
