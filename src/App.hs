@@ -4,7 +4,6 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Data.Either (fromRight)
 import Data.Either.Extra (fromRight')
-import Data.Monoid ((<>))
 import Data.Text.Encoding (decodeUtf8)
 import Control.Concurrent.Chan
 import System.IO.Error (catchIOError)
@@ -130,11 +129,13 @@ mkApp rc = do
       Right resp -> return resp
 
   get (regex "^/test/rd/(.*)") $ do  -- for testing path capture
+    fullPath :: LT.Text <- param "0"
     path :: LT.Text <- param "1"
     let filepath = webRoot (rcConfig rc) </> LT.unpack path
     json $ object ["ok" .= True
                   ,"path" .= path
-                  ,"filepath" .= filepath]
+                  ,"filepath" .= filepath
+                  ,"fullPath" .= fullPath]
 
   get "/debug/t1" $ do
     sha1 <- liftIO $ sha1sum "/home/sylecn/persist/cache/ideaIC-2018.1.tar.gz"

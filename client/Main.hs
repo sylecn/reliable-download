@@ -1,7 +1,6 @@
 module Main (main) where
 
 import Options.Applicative
-import Data.Semigroup ((<>))
 import Data.Maybe (isJust, fromMaybe)
 import Control.Monad (when, unless, forM_, mzero)
 import System.Directory ( createDirectoryIfMissing

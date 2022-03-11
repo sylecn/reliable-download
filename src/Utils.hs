@@ -2,7 +2,6 @@
 
 module Utils where
 
-import Data.Semigroup ((<>))
 import qualified Data.Text as T
 
 import Control.Error

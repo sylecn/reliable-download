@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2019-02-28>
+Time-stamp: <2022-03-12>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2018-05-09 how to release latest code on PyPI?
@@ -529,6 +529,77 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2022-03-11 try build this project using latest lts.
+updated ./stack.yaml
+resolver: lts-18.27
+
+export HTTP_PROXY=http://localhost:8123 HTTPS_PROXY=http://localhost:8123
+# tmake stack build --test
+tmake stack build -j6 --test
+
+I want to improve server side and client side logging.
+
+- make code compile.
+  - import Data.Semigroup ((<>))
+    import Data.Monoid ((<>))
+    import Control.Applicative ((<$>))
+
+    no longer necessary.
+  - redisReply2 <- R.runRedis conn $ R.hset hashKey (blockIdKey blockId) blockSha1
+    R.hset now return Right Integer on success.
+
+    Integer reply: The number of fields that were added.
+  - getPath :: [T.Text] -> WaiSession SResponse
+    WaiSession needs one more type argument.
+
+    just comment it out and let ghc show it's type.
+
+    getPath :: [T.Text] -> WaiSession st SResponse
+  - all tests pass.
+- update version, commit it.
+- problems
+  - CPU usage is very low. ~3%
+    try add -j6
+
+    most time is lost in network IO.
+    ghc build time is not that much.
+
+  - info: hoogle feels much faster than before. type and it will do search. no
+    need to press Enter.
+    https://hoogle.haskell.org/
+
+  - git pre-commit fail.
+    stack install hlint
+
+** 2021-03-18 "stack build" fail on ryzen5.
+stack build --test --pedantic
+Exception while reading snapshot from lts-10.3:
+"raw.githubusercontent.com"
+github is blocked in China.
+Either use a proxy or use a mirror.
+
+env HTTP_PROXY=http://localhost:8123 HTTPS_PROXY=http://localhost:8123 stack build --test --pedantic
+
+that's not a block. it's ssl cert issue.
+try upgrade stack.
+
+Home - The Haskell Tool Stack
+https://docs.haskellstack.org/en/stable/README/
+
+- run "stack upgrade"
+
+  reach github failed.
+  fall back to source upgrade.
+  build stack from source.
+  compile 167 pkgs.
+
+  stack 2.5.1.1
+  installed to ~/.local/bin/stack
+  should remove or relink ~/bin/stack
+
+  rm ~/bin/stack
+  ln -s ~/.local/bin/stack ~/bin/stack
+
 ** 2018-05-08 rd-api, allow serve static file without redis-server.
 --disable-rd-api
 if set, do not provides /rd/ api. just act like a static file server.

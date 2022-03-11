@@ -4,8 +4,6 @@ import Control.Concurrent.Chan
 import System.IO (IOMode(ReadMode), withBinaryFile)
 import GHC.IO.Handle (Handle, hTell, hSeek, SeekMode(AbsoluteSeek))
 import Control.Monad (when, replicateM_, forever)
-import Data.Monoid ((<>))
-import Control.Applicative ((<$>))
 import Control.Concurrent (forkIO)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
@@ -81,8 +79,8 @@ fileWorker rc = forever $ do
                   Left reply -> do
                     logl rc $ "redis hset failed on " <> showt hashKey <> ": " <> showt reply
                     return False
-                  Right bool ->
-                    if bool then
+                  Right n ->
+                    if n > 0 then
                       do
                         logl rc $ "redis hset " <> showt hashKey <> " " <> showt blockId <> " ok"
                         return True

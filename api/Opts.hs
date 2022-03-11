@@ -1,7 +1,5 @@
 module Opts (argParser) where
 
-import Data.Semigroup ((<>))
-
 import Options.Applicative
 
 import Config

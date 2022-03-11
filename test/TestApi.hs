@@ -121,7 +121,7 @@ spec = do
       sha1 `shouldBe` "4690b050834d4059d40ad6f63bf91d6a4558bb71"
 
 -- | like get, but accept path in [T.Text] format and do url safe encoding.
-getPath :: [T.Text] -> WaiSession SResponse
+getPath :: [T.Text] -> WaiSession st SResponse
 getPath = get . LB.toStrict . toLazyByteString . encodePathSegments
 
 waiApp :: IO Application

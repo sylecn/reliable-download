@@ -1,6 +1,5 @@
 module DB where
 
-import Data.Semigroup ((<>))
 import qualified Data.Text as T
 import qualified Data.ByteString as B
 import qualified Database.Redis as R

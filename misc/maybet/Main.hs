@@ -2,6 +2,7 @@
 -- import Control.Monad (mzero)
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Class (lift)
+import Data.Foldable (forM_)
 
 checkA :: MaybeT IO ()
 checkA = do
@@ -36,9 +37,7 @@ main = do
     checkA
     checkB
     doC
-  case resultMaybe of
-    Just result -> print result
-    Nothing -> return ()
+  forM_ resultMaybe print
 
 -- for checks, use MaybeT IO (), return mzero if check failed.
 -- for actions that produce value, but may also fail, use MaybeT IO a, return

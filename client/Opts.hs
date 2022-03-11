@@ -1,7 +1,6 @@
 module Opts (RDOptions(..), argParser, RDClientRuntimeConfig(..)) where
 
 import qualified Data.Text as T
-import Data.Semigroup ((<>))
 
 import Options.Applicative
 import qualified System.Logger as L

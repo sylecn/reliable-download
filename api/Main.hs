@@ -2,7 +2,6 @@ module Main (main) where
 
 import Data.String (fromString)
 import System.Environment (getEnvironment)
-import Data.Semigroup ((<>))
 import Control.Monad (mzero, when)
 import Control.Monad.IO.Class (liftIO)
 import System.Directory (setCurrentDirectory)

@@ -6,3 +6,4 @@ build/
 pypi/rd-client/rdclient/rd
 pypi/rd-api/rdapi/rd-api
 *README.rst
+stack.yaml.lock

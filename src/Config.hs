@@ -4,7 +4,6 @@ import qualified Database.Redis as R
 import Control.Concurrent.Chan
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as Char8
-import Data.Monoid ((<>))
 
 import System.Log.FastLogger
 
