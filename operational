@@ -295,6 +295,13 @@ https://artyom.me/aeson
 ** 2018-05-06 optparse-applicative :: Stackage Server
 https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
 * later                                                               :entry:
+** 2022-03-12 drop redis-server as rd-api dependency.
+- use a built-in key-value db. such as Berkeley db, sqlite3, or leveldb.
+  use a well known path for the db name.
+
+  $HOME/.cache/reliable-downloader/rd-api.db
+- 
+
 ** 2018-05-07 loopUntilAllBlocksReady, how to track progress?
 use a thread pool to download blocks, print overall progress when some parts
 done or some time elapsed.
@@ -499,6 +506,31 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
+** 2022-03-12 improve logging on rd-api and rd client.
+- For big files, when there is a lot of blocks, rd-api default log is too
+  much.
+
+  default INFO level log should be easy to read.
+  just enough for the user to understand what's going on.
+- on client side, "block xx fetched" is not as useful as "xx/xx block fetched,
+  xx%"
+- 
+
+** 2021-10-07 When combine blocks to final file, do not use more disk space than original file size.
+One way is, open target file in write mode, append block 0, remove block 0.
+Append block 1, remove block 1.
+...
+Until last block.
+
+But this will fail if there is a disk failure.
+
+Maybe only do this when local disk is low on space.
+
+Is there an API that atomically combine two files? Reuse existing disk sectors
+of the two files.
+
+- What's the current combine logic?
+
 ** 2019-02-28 bug: rd-api -d java/
 option -d: cannot parse value `java/'
 
