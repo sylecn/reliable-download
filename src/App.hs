@@ -48,16 +48,17 @@ fillSha1sum rc fbp = do
 processNewFileAsyncMaybe :: RDRuntimeConfig -> FillBlockParam -> ExceptT T.Text IO ()
 processNewFileAsyncMaybe rc fbp = do
   let strKey = fileStatusKey fbp
+      filePath = fbpFilepath fbp
   resultE <- liftIO $ DB.insertIfNotExist rc strKey fileStatusWorking
   throwOnLeft resultE
   let insertOk = fromRight' resultE
   if insertOk then liftIO $ do
-      logl rc $ showt strKey <> " is a new file, sending task to worker"
+      logl rc $ showt filePath <> " is a new file, sending task to worker"
       writeChan (rcFileChan rc) fbp
       return ()
   else do
     oldStatusE <- liftIO $ do
-      logl rc $ showt strKey <> " is not a new file"
+      logl rc $ showt filePath <> " is not a new file"
       -- if status is error, set it to working, then add task to fileChan
       DB.get rc strKey
     throwOnLeftMsg oldStatusE "get old file status failed"

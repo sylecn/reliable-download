@@ -178,20 +178,20 @@ combineBlocks rc rdResp = do
           removeFile targetFilename
           return True)
         (\e -> do
-           errorl rc $ "remove existing file failed: " <> showt e
+           errorl rc $ "Remove existing file failed: " <> showt e
            return False)
       unless result mzero
   liftIO $ do
-    infol rc $ "combining blocks to create " <> showt targetFilename
+    infol rc $ "Combining blocks to create " <> showt targetFilename
     forM_ (getBlockTargetFilenames opts rdResp) $ \blockFilename -> do
       debugl rc $ "appending block file " <> showt blockFilename
       content <- LB.readFile blockFilename
       LB.appendFile targetFilename content  -- TODO how to handle error here?
                                             -- let it crash?
-    infol rc $ "file downloaded to " <> showt targetFilename
+    infol rc $ "File downloaded to " <> showt targetFilename
     unless (keepBlockData opts) $ do
       let tempdir = tempDir opts </> filename
-      debugl rc $ "delete temporary block data dir " <> showt tempdir
+      debugl rc $ "Delete temporary block data dir " <> showt tempdir
       catchIOError (removeDirectoryRecursive tempdir)
                    (\e -> warnl rc $ "Warning: delete temp block data dir failed: " <> showt e)
 
@@ -276,7 +276,7 @@ cliApp :: RDOptions -> IO ()
 cliApp opts = do
   let level = if verbose opts then L.Debug else L.Info
       -- Note: tinylog doesn't support non-GMT dateformat.
-      logSettings = (L.setFormat (Just "%0H:%0M:%0S") .
+      logSettings = (L.setFormat (Just "%Y-%0m-%0dT%0H:%0M:%0S") .
                      L.setLogLevel level .
                      L.setDelimiter "  ")
                     L.defSettings
@@ -294,7 +294,7 @@ cliApp opts = do
   resultsMaybe <- mapM (runMaybeT . downloadFile rc) (urls opts)
   let results = map (fromMaybe False) resultsMaybe
   if and results then
-      infol rc "all urls downloaded."
+      infol rc "All urls downloaded."
   else do
       errorl rc $ (showt . length . filter not) results <> " urls failed/skipped."
       exitFailure

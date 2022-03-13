@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2022-03-12>
+Time-stamp: <2022-03-13>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2018-05-09 how to release latest code on PyPI?
@@ -514,7 +514,88 @@ only first character is in path key.
   just enough for the user to understand what's going on.
 - on client side, "block xx fetched" is not as useful as "xx/xx block fetched,
   xx%"
-- 
+- implementation
+  ./src/App.hs
+  mkApp
+
+  getRdHandler
+
+- DONE client side log should have datatime as ts, not just time.
+  use the default ISO8601 UTC time.
+  it doesn't support local time.
+
+  client side use tinylog
+  import qualified System.Logger as L
+  and a few wrappers, such as debugl, infol, warnl etc.
+  rdLogger is saved in RDClientRuntimeConfig.
+
+  tinylog last release is from 2019.5 no updates since then.
+
+  other logging systems
+
+  katip: A structured logging framework.
+  https://hackage.haskell.org/package/katip
+  too many dependencies for a logging library.
+
+  simple-logger: A very simple but efficient logging framework
+  https://hackage.haskell.org/package/simple-logger
+  last release 2020.12
+
+  heavy-logger: Full-weight logging based on fast-logger
+  https://hackage.haskell.org/package/heavy-logger
+
+  co-log :: Kowainik
+  https://kowainik.github.io/projects/co-log
+  co-log/tutorials at main · co-log/co-log
+  https://github.com/co-log/co-log/tree/main/tutorials
+  still too complicated because I don't use monad transformers in my app.
+
+  How do I do logging in Haskell? - Stack Overflow
+  https://stackoverflow.com/questions/6310961/how-do-i-do-logging-in-haskell
+
+  just continue to use tinylog.
+
+- ~/projects/reliable-download/src/Utils.hs
+  rd-api use fast-logger
+  import System.Log.FastLogger
+
+  fast-logger: A fast logging system
+  https://hackage.haskell.org/package/fast-logger-3.1.1
+  last release is 2022.1, good.
+
+  -- | log a message that implements ToLogStr
+  logl :: ToLogStr a => RDRuntimeConfig -> a -> IO ()
+
+  I can implement log level here myself.
+
+  logl rc $
+
+  try convert from fast-logger to tinylog.
+  api/Main.hs
+  src/App.hs
+  src/DB.hs
+  src/Utils.hs    drop logl definition.
+  src/Worker.hs
+
+- problems
+  - rd client has log level. api doesn't have log level.
+
+    I need to add log level to api.
+
+    fillSha1sum: redis hgetall "/home/sylecn/d/t2/wheelhouse/cryptography-3.4.7-cp36-abi3-manylinux2014_x86_64.whl_2097152" ok
+
+    redis hset "/home/sylecn/d/t2/wheelhouse/cryptography-3.4.7-cp36-abi3-manylinux2014_x86_64.whl_2097152" 0 ok
+
+    set file status to "done" for "/home/sylecn/d/t2/wheelhouse/cryptography-3.4.7-cp36-abi3-manylinux2014_x86_64.whl"
+
+    these should be debug log.
+
+  - DONE 12/Mar/2022:23:01:15 +0800 "/home/sylecn/d/t2/wheelhouse/cryptography-3.4.7-cp36-abi3-manylinux2014_x86_64.whl_2097152_status" is not a new file
+    use file name, not xxx_xxx_status.
+
+    I have FillBlockParam fbp, how to get filepath?
+    fbpFilepath fbp
+  - 
 
 ** 2021-10-07 When combine blocks to final file, do not use more disk space than original file size.
 One way is, open target file in write mode, append block 0, remove block 0.
