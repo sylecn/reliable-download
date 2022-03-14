@@ -7,7 +7,7 @@ import Data.Either.Extra (fromRight')
 import Data.Text.Encoding (decodeUtf8)
 import Control.Concurrent.Chan
 import System.IO.Error (catchIOError)
-import Control.Monad (when, unless)
+import Control.Monad (unless)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
@@ -33,11 +33,11 @@ fillSha1sum rc fbp = do
   redisReply <- R.runRedis (rcRedisConn rc) $ R.hgetall hashKey
   case redisReply of
     Left reply -> do
-      logl rc $ "redis hgetall " <> showt hashKey <> " failed: " <> showt reply
+      errorl rc $ "redis hgetall " <> showt hashKey <> " failed: " <> showt reply
       return $ map fillBlock (fbpBlocks fbp) where
         fillBlock (blockId, start, end) = (blockId, start, end, "pending")
     Right blockIdSha1sumAlist -> do
-      logl rc $ "fillSha1sum: redis hgetall " <> showt hashKey <> " ok"
+      debugl rc $ "fillSha1sum: redis hgetall " <> showt hashKey <> " ok"
       return $ map fillBlock (fbpBlocks fbp) where
         blockIdSha1sumMap = M.fromList blockIdSha1sumAlist
         fillBlock :: Block -> BlockWithChecksum
@@ -49,26 +49,30 @@ processNewFileAsyncMaybe :: RDRuntimeConfig -> FillBlockParam -> ExceptT T.Text 
 processNewFileAsyncMaybe rc fbp = do
   let strKey = fileStatusKey fbp
       filePath = fbpFilepath fbp
-  resultE <- liftIO $ DB.insertIfNotExist rc strKey fileStatusWorking
+  resultE <- liftIO $ DB.insertIfNotExist rc strKey $ fsBytes FileStatusWorking
   throwOnLeft resultE
   let insertOk = fromRight' resultE
   if insertOk then liftIO $ do
-      logl rc $ showt filePath <> " is a new file, sending task to worker"
+      infol rc $ showt filePath <> " is a new file, sending task to worker"
       writeChan (rcFileChan rc) fbp
       return ()
   else do
     oldStatusE <- liftIO $ do
-      logl rc $ showt filePath <> " is not a new file"
+      debugl rc $ showt filePath <> " is not a new file"
       -- if status is error, set it to working, then add task to fileChan
       DB.get rc strKey
     throwOnLeftMsg oldStatusE "get old file status failed"
     let oldStatus = fromRight' oldStatusE
-    when (oldStatus == Just fileStatusError) $ do
+    case fmap fsFromBytes oldStatus of
+      Just FileStatusError -> do
         setResultE <- liftIO $ do
-          logl rc $ showt strKey <> " was in " <> showt fileStatusError <> " status"
-          DB.set rc strKey fileStatusWorking
-        throwOnLeftMsg setResultE $ "set file status to " <> showt fileStatusWorking <> " failed"
+          infol rc $ showt strKey <> " was in " <> showt FileStatusError <> " status"
+          DB.set rc strKey $ fsBytes FileStatusWorking
+        throwOnLeftMsg setResultE $ "set file status to " <> showt FileStatusWorking <> " failed"
         liftIO $ writeChan (rcFileChan rc) fbp
+      Just FileStatusDone -> liftIO $ infol rc "file was processed before"
+      Just FileStatusWorking -> liftIO $ infol rc "file is being processed by worker"
+      _ -> liftIO $ errorl rc "Unexpected file status"
 
 -- | GET /rd/.* handler
 getRdHandler :: RDRuntimeConfig -> ExceptT T.Text ActionM ()
@@ -79,12 +83,12 @@ getRdHandler rc = do
 
   let filepath = webRoot (rcConfig rc) </> T.unpack path
   fileStatusE <- lift $ do
-    liftIO $ logl rc $ "user request " <> showt filepath
+    liftIO $ infol rc $ "user request " <> showt filepath
     liftIO $ catchIOError
       (fmap Right (getFileStatus filepath))
       (\e -> do
          let msg = "getFileStatus on " <> T.pack filepath <> " failed"
-         logl rc $ msg <> ":\n\t" <> T.pack (show e)
+         errorl rc $ msg <> ":\n\t" <> T.pack (show e)
          return $ Left msg)
   throwOnLeft fileStatusE
   let fileStatus = fromRight' fileStatusE

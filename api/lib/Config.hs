@@ -4,8 +4,10 @@ import qualified Database.Redis as R
 import Control.Concurrent.Chan
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as Char8
+import qualified Data.Text as T
+import Control.Monad.IO.Class
 
-import System.Log.FastLogger
+import qualified System.Logger as L
 
 import Type
 
@@ -17,6 +19,7 @@ data RDConfig = RDConfig {
     , redisPort :: Int
     , webRoot :: FilePath
     , fileWorkerCount :: Int
+    , verbose :: Bool
     , showVersion :: Bool } deriving (Show)
 
 data RDRuntimeConfig = RDRuntimeConfig {
@@ -24,8 +27,31 @@ data RDRuntimeConfig = RDRuntimeConfig {
     , rcRedisConn :: R.Connection
     , rcHasRedis :: Bool
     , rcFileChan :: Chan FillBlockParam
-    , rcLoggerSet :: LoggerSet
-    , rcLoggerTimeCache :: IO FormattedTime }
+    , rcLogger :: L.Logger }
+
+errorl :: MonadIO m => RDRuntimeConfig -> T.Text -> m ()
+errorl rc msg = do
+  let logger = rcLogger rc
+  L.err logger $ L.msg msg
+  L.flush logger
+
+warnl :: MonadIO m => RDRuntimeConfig -> T.Text -> m ()
+warnl rc msg = do
+  let logger = rcLogger rc
+  L.warn logger $ L.msg msg
+  L.flush logger
+
+infol :: MonadIO m => RDRuntimeConfig -> T.Text -> m ()
+infol rc msg = do
+  let logger = rcLogger rc
+  L.info logger $ L.msg msg
+  L.flush logger
+
+debugl :: MonadIO m => RDRuntimeConfig -> T.Text -> m ()
+debugl rc msg = L.debug (rcLogger rc) $ L.msg msg
+
+flushl :: MonadIO m => RDRuntimeConfig -> m ()
+flushl rc = L.flush (rcLogger rc)
 
 defaultRDConfig :: RDConfig
 defaultRDConfig = RDConfig {
@@ -35,6 +61,7 @@ defaultRDConfig = RDConfig {
                   , redisPort = 6379
                   , webRoot = "/nonexistent"
                   , fileWorkerCount = 2
+                  , verbose = False
                   , showVersion = False
                   }
 
@@ -42,15 +69,17 @@ defaultRDRuntimeConfig :: RDConfig -> IO RDRuntimeConfig
 defaultRDRuntimeConfig config = do
   conn <- R.connect R.defaultConnectInfo
   fileChan <- newChan
-  loggerSet <- newStdoutLoggerSet defaultBufSize
-  loggerTimeCache <- newTimeCache simpleTimeFormat
+  let logLevel = if verbose config then L.Debug else L.Info
+      logSettings = (L.setFormat (Just "%Y-%0m-%0dT%0H:%0M:%0S") .
+                     L.setLogLevel logLevel .
+                     L.setDelimiter "  ") L.defSettings
+  logger <- L.new logSettings
   return RDRuntimeConfig {
                rcConfig=config
              , rcRedisConn=conn
              , rcHasRedis=True
              , rcFileChan=fileChan
-             , rcLoggerSet=loggerSet
-             , rcLoggerTimeCache=loggerTimeCache }
+             , rcLogger=logger }
 
 -- | the redis hash key used to store cached sha1sum for given FillBlockParam
 blockSha1sumHashKey :: FillBlockParam -> B.ByteString

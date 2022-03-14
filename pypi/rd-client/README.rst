@@ -51,6 +51,10 @@ see rd-api_.
 ChangeLog
 ---------
 
+* v1.1.3.0 2022-03-14
+
+  - feature: code ported to ghc 8.10.7
+
 * v1.0.0.3 2018-05-09
 
   - init release.

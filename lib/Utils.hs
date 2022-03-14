@@ -5,19 +5,10 @@ module Utils where
 import qualified Data.Text as T
 
 import Control.Error
-import System.Log.FastLogger
-
-import Config
 
 -- | like show, but return a T.Text
 showt :: Show a => a -> T.Text
 showt = T.pack . show
-
--- | log a message that implements ToLogStr
-logl :: ToLogStr a => RDRuntimeConfig -> a -> IO ()
-logl rc msg = do
-  ts <- rcLoggerTimeCache rc
-  pushLogStrLn (rcLoggerSet rc) $ toLogStr ts <> " " <> toLogStr msg
 
 -- | signal an exception if given eitherValue is a Left.
 throwOnLeft :: Monad m => Either T.Text a -> ExceptT T.Text m ()

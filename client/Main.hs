@@ -313,5 +313,5 @@ main = do
   where
     parserInfo = info (argParser <**> helper)
       (  fullDesc
-      <> header "rd - reliable download command line tool"
+      <> header "rd - reliable download client"
       <> progDesc "Download large files across slow and unstable network reliably. Requires using rd-api on server side. For more information, see rd-api --help")

@@ -19,7 +19,6 @@ import qualified Text.PrettyPrint.ANSI.Leijen as D
 
 import Config
 import CliVersion (cliVersion)
-import Utils
 import Opts (argParser)
 import OptsDoc (rdApiDescription)
 import App (mkWaiApp)
@@ -68,7 +67,8 @@ runApiServer rdConfig = do
   configE <- liftIO $ updateRDConfigFromEnv rdConfig
   configMaybe <- case configE of
     Left e -> do
-      liftIO $ logl rc0 $ sformat ("Error: " % stext) e
+      -- liftIO $ L.err (rcLogger rc0) $ L.msg $ sformat ("Error: " % stext) e
+      liftIO $ errorl rc0 $ sformat ("Error: " % stext) e
       mzero    -- early exit
     Right config -> return $ Just config
   let config = fromJust configMaybe
@@ -79,10 +79,10 @@ runApiServer rdConfig = do
   connMaybe <- case connEi of
     Left e -> do
       liftIO $ do
-        logl rc0 $ sformat
+        errorl rc0 $ sformat
           ("Connect to redis at " % string % ":" % int % " failed: " % stext)
           (redisHost config) (redisPort config) e
-        logl rc0 $ sformat "No redis, GET /rd/ api disabled, acting as static file server"
+        warnl rc0 $ sformat "No redis, GET /rd/ api disabled, acting as static file server"
       return Nothing
     Right conn ->
       return $ Just conn
@@ -96,9 +96,9 @@ runApiServer rdConfig = do
     if rcHasRedis rc then
         startWorkers rc
     else
-        logl rc $ sformat "No redis, not starting workers"
-    logl rc $ sformat ("webRoot is " % string) (webRoot config)
-    logl rc $ sformat ("will listen on " % string % ":" % int) (host config) (port config)
+        warnl rc $ sformat "No redis, not starting workers"
+    infol rc $ sformat ("webRoot is " % string) (webRoot config)
+    infol rc $ sformat ("will listen on " % string % ":" % int) (host config) (port config)
     let warpSettings = ( setFdCacheDuration 10
                        . setFileInfoCacheDuration 10
                        . setPort (port config)

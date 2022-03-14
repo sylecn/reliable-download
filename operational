@@ -1,14 +1,26 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2022-03-13>
+Time-stamp: <2022-03-14>
 #+STARTUP: content
 * notes                                                               :entry:
-** 2018-05-09 how to release latest code on PyPI?
+** 2022-03-14 project dir structure
+- lib      shared code for server and client, the reliable-download library
+- api      rd-api cli Main
+- api/lib  rd-api cli logic
+- client   rd cli Main
+- cli-version    cli-version string shared by rd-api and rd cli Main
+- misc/    learning tools and temp codes
+- test/    tests
+
+** 2018-05-09 how to release latest code on PyPI? how to make a release?
 - update version number in package.yaml, src/CliVersion.hs
 - build binary
-  stack build --test
+  stack build --test --pedantic
   stack exec hlint -- -g
-- update README file
+- update README file. add ChangeLog entry on *README.rst
+  README.md
+  rd-api-README.rst
+  rd-README.rst
 - release binary on PyPI
   export TWINE_PASSWORD=xxx
   make all -C pypi
@@ -82,6 +94,10 @@ Time-stamp: <2022-03-13>
   rd api:
   curl -XGET http://localhost:8082/rd/ideaIC-2018.1.tar.gz
   curl -XGET http://localhost:8082/rd/ideaIC-2018.1.tar.gz | jq .
+
+  To clear cached file status for ideaIC-2018.1.tar.gz,
+  redis-cli del "/home/sylecn/persist/cache/ideaIC-2018.1.tar.gz_2097152_status"
+  the 2097152 there is 2MiB block size in bytes.
 
 - client tool:
   cd ~/projects/reliable-download/
@@ -157,7 +173,10 @@ this should return json of the block metadata.
   - 
 
 ** 2018-05-06 how to run hlint
-stack exec hlint -- src api client
+stack exec hlint -- src api client logtest
+
+or run on all git files:
+stack exec hlint -- -g
 ** 2018-05-05 it's impossible to do logging easily in haskell.
 two problems
 
@@ -506,6 +525,89 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
+** 2022-03-14 can I make tinylog log timestamp use localtime?
+** 2022-03-14 release v1.1.3.0
+- v1.1.3.0 changes
+  - revised logging messages
+  - rd-api support --verbose option. debug msg is not shown by default.
+  - code ported to ghc 8.10.7
+
+- v1.1.4.0 changes
+  - TODO IO error handling when combine blocks to big file
+
+- problems
+  - DONE CliVersion module can be moved away from library.
+    it is only used in rd client and rd-api executable.
+
+    seems not worth the trouble.
+
+    search: haskell package.yaml extra source file
+
+    source-dirs is a list.
+
+  - DONE why does rd-client rely on library?
+    rd-api and rd has some shared code in Utils.hs and Lib.hs
+
+    move non-shared code to api/ module.
+
+  - DONE how to test api module after some files moved from reliable-download
+    library?
+
+    move api library code to api/lib/ dir.
+    include that source dir in test binary.
+
+    it works.
+
+  - TODO do I need to build on older system so pypi version will work on all
+    OS? e.g. debian 9 or debian 10.
+
+    try run binary built on debian 11 in debian 10 VM.
+
+** 2021-10-07 When combine blocks to final file, do not use more disk space than original file size.
+One way is, open target file in write mode, append block 0, remove block 0.
+Append block 1, remove block 1.
+...
+Until last block.
+
+But this will fail if there is a disk failure.
+
+Maybe only do this when local disk is low on space.
+
+Is there an API that atomically combine two files? Reuse existing disk sectors
+of the two files.
+
+- What's the current combine logic?
+
+** 2019-02-28 bug: rd-api -d java/
+option -d: cannot parse value `java/'
+
+- stack exec rd-api -- -d t1/
+  this works fine.
+
+  probably a python wrapper issue.
+
+** 2018-05-10 use a proper module hierarchy.
+import RD.Utils
+import RD.Api.Lib
+import RD.Api.Config
+import RD.Client.Lib
+import RD.Client.Opts
+
+- stack repl doesn't like duplicated Lib module. also for libs, correct mdoule
+  hierarchy is important.
+- 
+
+** 2018-05-09 test the app under unstable network.
+I remember there are tools that can simulate packet loss.
+policy in ovs can do it.
+
+- 2018-05-11 tcp - Simulate delayed and dropped packets on Linux - Stack Overflow
+  https://stackoverflow.com/questions/614795/simulate-delayed-and-dropped-packets-on-linux
+
+  test this in vbox VM. stretch01
+  see stretch01 daylog.
+
+* done                                                                :entry:
 ** 2022-03-12 improve logging on rd-api and rd client.
 - For big files, when there is a lot of blocks, rd-api default log is too
   much.
@@ -577,6 +679,34 @@ only first character is in path key.
   src/Utils.hs    drop logl definition.
   src/Worker.hs
 
+- test logging works as expected.
+  without --verbose
+  with --verbose
+
+  rd-api looks good.
+  rd looks okay. progress tracking can be further improved.
+
+  - problems
+    - MOVED can I make log timestamp use localtime?
+
+    - why binary is so huge?
+      ll "/home/sylecn/projects/reliable-download/.stack-work/install/x86_64-linux-tinfo6/9d918e84fe7a0b1a34181819ba567c0f47f721374dbb8070c76ed2c65393d9b2/8.10.7/bin"
+      23M rd
+      24M rd-api
+
+      it's already stripped.
+
+      old release size
+      binary: rd-api 19M, rd 22M
+      whl file: rd-api 4M, rd 4.7M
+
+      so zip can compress most of it.
+      I still want to reduce binary size though.
+
+      search: haskell stack reduce binary size
+
+      is ghc -O2 enabled by default? yes.
+
 - problems
   - rd client has log level. api doesn't have log level.
 
@@ -595,53 +725,51 @@ only first character is in path key.
 
     I have FillBlockParam fbp, how to get filepath?
     fbpFilepath fbp
-  - 
+  - I don't want to write debugl, infol etc for both client and server side.
 
-** 2021-10-07 When combine blocks to final file, do not use more disk space than original file size.
-One way is, open target file in write mode, append block 0, remove block 0.
-Append block 1, remove block 1.
-...
-Until last block.
+    debugl :: RDClientRuntimeConfig -> T.Text -> IO ()
+    infol :: RDClientRuntimeConfig -> T.Text -> IO ()
+    warnl :: RDClientRuntimeConfig -> T.Text -> IO ()
+    errorl :: RDClientRuntimeConfig -> T.Text -> IO ()
 
-But this will fail if there is a disk failure.
+    logl :: ToLogStr a => RDRuntimeConfig -> a -> IO ()
 
-Maybe only do this when local disk is low on space.
+    Is this where I need monad transformer?
 
-Is there an API that atomically combine two files? Reuse existing disk sectors
-of the two files.
+    loggerSet <- newStdoutLoggerSet defaultBufSize
+    loggerTimeCache <- newTimeCache simpleTimeFormat
+    RDRuntimeConfig { ...
+             , rcLoggerSet=loggerSet
+             , rcLoggerTimeCache=loggerTimeCache
+    }
 
-- What's the current combine logic?
+    RDClientRuntimeConfig {rdLogger=logger}
 
-** 2019-02-28 bug: rd-api -d java/
-option -d: cannot parse value `java/'
+    yes. this is where ReaderT Env IO comes handy.
+    see test use-case in ~/projects/reliable-download/logtest/Main.hs
 
-- stack exec rd-api -- -d t1/
-  this works fine.
+    see also
+    The ReaderT Design Pattern
+    https://www.fpcomplete.com/blog/2017/06/readert-design-pattern/
 
-  probably a python wrapper issue.
+  - still too complicated for me.
+    I start with this:
+    fillSha1sum :: FillBlockParam -> RDApp [BlockWithChecksum]
 
-** 2018-05-10 use a proper module hierarchy.
-import RD.Utils
-import RD.Api.Lib
-import RD.Api.Config
-import RD.Client.Lib
-import RD.Client.Opts
+    don't know how to change:
+    getRdHandler :: RDRuntimeConfig -> ExceptT T.Text ActionM ()
+    to
 
-- stack repl doesn't like duplicated Lib module. also for libs, correct mdoule
-  hierarchy is important.
-- 
+    getRdHandler :: ExceptT T.Text ActionM RDApp ()
+    or
+    getRdHandler :: ExceptT T.Text RDApp ActionM ()
 
-** 2018-05-09 test the app under unstable network.
-I remember there are tools that can simulate packet loss.
-policy in ovs can do it.
+    need to be more comfortable with monad transformers. and it's best to
+    start it with new project.
 
-- 2018-05-11 tcp - Simulate delayed and dropped packets on Linux - Stack Overflow
-  https://stackoverflow.com/questions/614795/simulate-delayed-and-dropped-packets-on-linux
+    for rd-api, I will just keep RDRuntimeConfig everywhere.
+    just switch to tinylog for logging.
 
-  test this in vbox VM. stretch01
-  see stretch01 daylog.
-
-* done                                                                :entry:
 ** 2022-03-11 try build this project using latest lts.
 updated ./stack.yaml
 resolver: lts-18.27

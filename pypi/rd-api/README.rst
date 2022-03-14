@@ -76,6 +76,11 @@ easy installation on linux system. Reliable download only runs in linux.
 ChangeLog
 ---------
 
+* v1.1.3.0 2022-03-14
+
+  - bugfix: revised logging messages. rd-api supports --verbose option. debug msg is not shown by default.
+  - feature: code ported to ghc 8.10.7
+
 * v1.1.0.0 2018-05-10
 
   - feature: support passing arguments using env variables, for cli arg --redis-host, the env variable will be REDIS_HOST.

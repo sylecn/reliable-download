@@ -47,6 +47,11 @@ argParser = RDConfig
       <> value 2
       <> metavar "INT")
   <*> switch
+      (  long "verbose"
+      <> short 'v'
+      <> help "show more debug message"
+      <> showDefault )
+  <*> switch
       (  long "version"
       <> short 'V'
       <> help "show program version and exit" )

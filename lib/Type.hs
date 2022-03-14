@@ -1,5 +1,6 @@
 module Type where
 
+import qualified Data.ByteString.Char8 as Char8
 import qualified Data.ByteString as B
 import qualified Data.Text as T
 
@@ -17,14 +18,29 @@ getBlockSha1sum (_, _, _, sha1sum) = sha1sum
 getBlockId :: BlockWithChecksum -> BlockID
 getBlockId (blockId, _, _, _) = blockId
 
-fileStatusWorking :: B.ByteString
-fileStatusWorking = "working"
+data FileStatus
+    = FileStatusWorking
+    | FileStatusError
+    | FileStatusDone
+    | FileStatusUnknown    -- unexpected/unknown status
+    deriving (Eq)
 
-fileStatusError :: B.ByteString
-fileStatusError = "error"
+instance Show FileStatus where
+    show FileStatusWorking = "working"
+    show FileStatusError = "error"
+    show FileStatusDone = "done"
+    show FileStatusUnknown = "unknown"
 
-fileStatusDone :: B.ByteString
-fileStatusDone = "done"
+fsBytes :: FileStatus -> B.ByteString
+fsBytes = Char8.pack . show
+
+fsFromBytes :: B.ByteString -> FileStatus
+fsFromBytes bs =
+    case bs of
+      "working" -> FileStatusWorking
+      "error" -> FileStatusError
+      "done" -> FileStatusDone
+      _ -> FileStatusUnknown
 
 data FillBlockParam = FillBlockParam {
       fbpFilepath :: FilePath

@@ -14,11 +14,11 @@ rd-api - reliable download server
 
 Usage: rd-api [-h|--host HOST] [-p|--port PORT] [--redis-host REDIS_HOST]
               [--redis-port REDIS_PORT] [-d|--web-root DIR] [-w|--worker INT]
-              [-V|--version]
+              [-v|--verbose] [-V|--version]
   rd-api is an HTTP file server that provides static file hosting and reliable
   download api for rd client.
   
-  rd-api serves files under web-root. You can use it like python3 -m http.server
+  rd-api serves files under web-root. You can use it like ```python3 -m http.server```
   
   In addition, if rd command line tool is used to do the download, it will
   download in a reliable way by downloading in 2MiB blocks and verify checksum
@@ -54,6 +54,7 @@ Available options:
   -d,--web-root DIR        web root directory (default: ".")
   -w,--worker INT          how many concurrent workers to calculator sha1sum for
                            file (default: 2)
+  -v,--verbose             show more debug message
   -V,--version             show program version and exit
   -h,--help                Show this help text
 
@@ -61,7 +62,7 @@ Available options:
 
 ```
 $ rd --help
-rd - reliable download command line tool
+rd - reliable download client
 
 Usage: rd [-r|--block-max-retry INT] [-k|--keep] [-d|--temp-dir TEMP_DIR]
           [-o|--output-dir OUTPUT_DIR] [-w|--worker INT] [-f|--force]

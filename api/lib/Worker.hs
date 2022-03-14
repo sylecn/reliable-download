@@ -39,23 +39,23 @@ sha1sumFileRange filepath start end = sha1sumOnBytes <$> fileRange filepath star
 -- for all blocks and write result to redis. then mark the file as done.
 fileWorker :: RDRuntimeConfig -> IO ()
 fileWorker rc = forever $ do
-  logl rc ("fileWorker is waiting for jobs..." :: T.Text)
+  infol rc ("fileWorker is waiting for jobs..." :: T.Text)
   fbp <- readChan (rcFileChan rc)
   let filepath = fbpFilepath fbp
       conn = rcRedisConn rc
   -- calculate sha1sum for each block and write result to redis hash
-  logl rc $ "fileWorker working on " <> showt filepath
+  infol rc $ "fileWorker working on " <> showt filepath
   results <- withBinaryFile filepath ReadMode $ \handle -> do
     let hashKey = blockSha1sumHashKey fbp
     mapM (calculateSha1ForBlock conn hashKey handle) (fbpBlocks fbp)
-  let resultStatus = if and results then fileStatusDone else fileStatusError
-  redisReply <- R.runRedis conn $ R.set (fileStatusKey fbp) resultStatus
+  let resultStatus = if and results then FileStatusDone else FileStatusError
+  redisReply <- R.runRedis conn $ R.set (fileStatusKey fbp) $ fsBytes resultStatus
   case redisReply of
     Left reply ->
-      logl rc $ "set file status failed: " <> showt reply
+      errorl rc $ "Set file status failed: " <> showt reply
     Right _ -> do
-      logl rc $ "set file status to " <> showt resultStatus <> " for " <> showt filepath
-      logl rc $ "fileWorker done for " <> showt filepath
+      debugl rc $ "Set file status to " <> showt resultStatus <> " for " <> showt filepath
+      infol rc $ "fileWorker done for " <> showt filepath
   return ()
     where
       -- | calculate sha1 for a single block. return IO True on success.
@@ -64,12 +64,12 @@ fileWorker rc = forever $ do
         redisReply <- R.runRedis conn $ R.hget hashKey (blockIdKey blockId)
         case redisReply of
           Left reply -> do
-            logl rc $ "redis hget failed on " <> showt hashKey <> ": " <> showt reply
+            errorl rc $ "redis hget failed on " <> showt hashKey <> ": " <> showt reply
             return False
           Right sha1sumMaybe ->
             case sha1sumMaybe of
               Just _sha1sum -> do
-                logl rc $ "skip calculated block " <> showt blockId
+                debugl rc $ "skip calculated block " <> showt blockId
                 return True
               Nothing -> do
                 blockContent <- fileRangeH handle start end
@@ -77,12 +77,12 @@ fileWorker rc = forever $ do
                 redisReply2 <- R.runRedis conn $ R.hset hashKey (blockIdKey blockId) blockSha1
                 case redisReply2 of
                   Left reply -> do
-                    logl rc $ "redis hset failed on " <> showt hashKey <> ": " <> showt reply
+                    errorl rc $ "redis hset failed on " <> showt hashKey <> ": " <> showt reply
                     return False
                   Right n ->
                     if n > 0 then
                       do
-                        logl rc $ "redis hset " <> showt hashKey <> " " <> showt blockId <> " ok"
+                        debugl rc $ "redis hset " <> showt hashKey <> " " <> showt blockId <> " ok"
                         return True
                      else
                         return False
@@ -90,5 +90,5 @@ fileWorker rc = forever $ do
 startWorkers :: RDRuntimeConfig -> IO ()
 startWorkers rc = do
   let workerCount = fileWorkerCount $ rcConfig rc
-  logl rc $ "creating " <> showt workerCount <> " file worker(s)"
+  infol rc $ "creating " <> showt workerCount <> " file worker(s)"
   replicateM_ workerCount (forkIO $ fileWorker rc)
