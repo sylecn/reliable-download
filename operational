@@ -314,6 +314,32 @@ https://artyom.me/aeson
 ** 2018-05-06 optparse-applicative :: Stackage Server
 https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
 * later                                                               :entry:
+** 2022-03-14 can I make tinylog log timestamp use localtime?
+- L.DateFormat
+  doesn't allow IO.
+
+  I can't use formatUnixTime from
+  import Data.UnixTime (formatUnixTime)
+  in logSettings.
+
+  formatUnixTime needs to read TZ from env variable.
+  well, I can read that before init the logger.
+
+  formatUnixTime :: Format -> UnixTime -> IO ByteStringSource#
+
+  Formatting UnixTime to ByteString in local time. This is a wrapper for
+  strftime_l().
+
+- how to create the DateFormat myself?
+  formatUnixTime use C FFI.
+
+  foreign import ccall unsafe "c_format_unix_time"
+        c_format_unix_time :: CString -> CTime -> CString -> CInt -> IO CSize
+
+- I can't do it myself. based on the code of tinylog.
+  I can probably make it work with fast-logger.
+  until next time.
+
 ** 2022-03-12 drop redis-server as rd-api dependency.
 - use a built-in key-value db. such as Berkeley db, sqlite3, or leveldb.
   use a well known path for the db name.
@@ -525,59 +551,6 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
-** 2022-03-14 can I make tinylog log timestamp use localtime?
-** 2022-03-14 release v1.1.3.0
-- v1.1.3.0 changes
-  - revised logging messages
-  - rd-api support --verbose option. debug msg is not shown by default.
-  - code ported to ghc 8.10.7
-
-- v1.1.4.0 changes
-  - TODO IO error handling when combine blocks to big file
-
-- problems
-  - DONE CliVersion module can be moved away from library.
-    it is only used in rd client and rd-api executable.
-
-    seems not worth the trouble.
-
-    search: haskell package.yaml extra source file
-
-    source-dirs is a list.
-
-  - DONE why does rd-client rely on library?
-    rd-api and rd has some shared code in Utils.hs and Lib.hs
-
-    move non-shared code to api/ module.
-
-  - DONE how to test api module after some files moved from reliable-download
-    library?
-
-    move api library code to api/lib/ dir.
-    include that source dir in test binary.
-
-    it works.
-
-  - TODO do I need to build on older system so pypi version will work on all
-    OS? e.g. debian 9 or debian 10.
-
-    try run binary built on debian 11 in debian 10 VM.
-
-** 2021-10-07 When combine blocks to final file, do not use more disk space than original file size.
-One way is, open target file in write mode, append block 0, remove block 0.
-Append block 1, remove block 1.
-...
-Until last block.
-
-But this will fail if there is a disk failure.
-
-Maybe only do this when local disk is low on space.
-
-Is there an API that atomically combine two files? Reuse existing disk sectors
-of the two files.
-
-- What's the current combine logic?
-
 ** 2019-02-28 bug: rd-api -d java/
 option -d: cannot parse value `java/'
 
@@ -608,6 +581,93 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2021-10-07 When combine blocks to final file, do not use more disk space than original file size.
+   - Note taken on [2022-03-14 Mon 21:44] \\
+     in 1.2.0.0 when -l is given, it will do rolling combine. won't take 2x
+     file size disk space.
+
+One way is, open target file in write mode, append block 0, remove block 0.
+Append block 1, remove block 1.
+...
+Until last block.
+
+But this will fail if there is a disk failure.
+
+Maybe only do this when local disk is low on space.
+
+Is there an API that atomically combine two files? Reuse existing disk sectors
+of the two files.
+
+- What's the current combine logic?
+  client/Main.hs
+
+  content <- LB.readFile blockFilename
+  LB.appendFile targetFilename content
+
+  which calls
+  System.IO.withBinaryFile
+  it already wrap code with bracket. it will not leak fd.
+
+  // I can delete block file after append. but if combine fail, redownload
+  will need to DL deleted blocks. I don't track the combine steps when
+  re-download.
+
+  just do not combine, if there is not enough disk space when combine starts.
+  give an error and exit. unless --rolling-combine is given.
+
+  --keep
+  --rolling-combine
+  conflict with each other.
+
+  how to represent this in Options.Applicative? not sure.
+  Parser choice?
+  search: Options.Applicative choice
+
+  I check the options myself after parsing.
+
+  try it:
+  stack exec rd -- -k -l URL
+  stack exec rd -- URL
+
+- add exception handling for all disk IO actions.
+  DL file.
+  combine file.
+  delete file.
+
+** 2022-03-14 release v1.1.3.0
+- v1.1.3.0 changes
+  - revised logging messages
+  - rd-api support --verbose option. debug msg is not shown by default.
+  - code ported to ghc 8.10.7
+
+- problems
+  - DONE CliVersion module can be moved away from library.
+    it is only used in rd client and rd-api executable.
+
+    seems not worth the trouble.
+
+    search: haskell package.yaml extra source file
+
+    source-dirs is a list.
+
+  - DONE why does rd-client rely on library?
+    rd-api and rd has some shared code in Utils.hs and Lib.hs
+
+    move non-shared code to api/ module.
+
+  - DONE how to test api module after some files moved from reliable-download
+    library?
+
+    move api library code to api/lib/ dir.
+    include that source dir in test binary.
+
+    it works.
+
+  - TODO do I need to build on older system so pypi version will work on all
+    OS? e.g. debian 9 or debian 10.
+
+    try run binary built on debian 11 in debian 10 VM.
+
 ** 2022-03-12 improve logging on rd-api and rd client.
 - For big files, when there is a lot of blocks, rd-api default log is too
   much.

@@ -188,6 +188,12 @@ combineBlocks rc rdResp = do
       content <- LB.readFile blockFilename
       LB.appendFile targetFilename content  -- TODO how to handle error here?
                                             -- let it crash?
+      when (rollingCombine (rdOptions rc)) $ do
+        debugl rc $ "delete block file " <> showt blockFilename
+        catchIOError (removeFile blockFilename)
+                     (\e -> do
+                        errorl rc $ "Remove block file " <>
+                               T.pack blockFilename <> " failed: " <> showt e)
     infol rc $ "File downloaded to " <> showt targetFilename
     unless (keepBlockData opts) $ do
       let tempdir = tempDir opts </> filename
@@ -309,7 +315,11 @@ main = do
       putStrLn "No URLs given, nothing to do. See rd --help"
       exitFailure
     else
-      cliApp opts
+        if keepBlockData opts && rollingCombine opts then do
+            putStrLn "Error: option --keep and --rolling-combine can not be used at the same time.\nSee rd --help"
+            exitFailure
+        else
+            cliApp opts
   where
     parserInfo = info (argParser <**> helper)
       (  fullDesc

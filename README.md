@@ -64,9 +64,9 @@ Available options:
 $ rd --help
 rd - reliable download client
 
-Usage: rd [-r|--block-max-retry INT] [-k|--keep] [-d|--temp-dir TEMP_DIR]
-          [-o|--output-dir OUTPUT_DIR] [-w|--worker INT] [-f|--force]
-          [-v|--verbose] [-V|--version] [URL...]
+Usage: rd [-r|--block-max-retry INT] [-k|--keep] [-l|--rolling-combine] 
+          [-d|--temp-dir TEMP_DIR] [-o|--output-dir OUTPUT_DIR] 
+          [-w|--worker INT] [-f|--force] [-v|--verbose] [-V|--version] [URL...]
   Download large files across slow and unstable network reliably. Requires using
   rd-api on server side. For more information, see rd-api --help
 
@@ -74,6 +74,8 @@ Available options:
   -r,--block-max-retry INT max retry times for each block (default: 30)
   -k,--keep                keep block data when download has finished and
                            combined
+  -l,--rolling-combine     delete each block data right after combine, conflict
+                           with --keep
   -d,--temp-dir TEMP_DIR   the dir to keep block download
                            data (default: ".blocks")
   -o,--output-dir OUTPUT_DIR

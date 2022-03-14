@@ -8,6 +8,7 @@ import qualified System.Logger as L
 data RDOptions = RDOptions
   { blockMaxRetry :: Int
   , keepBlockData :: Bool
+  , rollingCombine :: Bool
   , tempDir :: FilePath
   , outputDir :: FilePath
   , workerCount :: Int
@@ -33,6 +34,11 @@ argParser = RDOptions
       (  long "keep"
       <> short 'k'
       <> help "keep block data when download has finished and combined"
+      <> showDefault )
+  <*> switch
+      (  long "rolling-combine"
+      <> short 'l'
+      <> help "delete each block data right after combine, conflict with --keep"
       <> showDefault )
   <*> strOption
       (  long "temp-dir"
