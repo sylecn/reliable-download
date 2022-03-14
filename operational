@@ -34,21 +34,24 @@ Time-stamp: <2022-03-14>
 
   on ryzen5,
   cd ~/projects/reliable-download/
-  scp .stack-work/install/x86_64-linux-nopie/lts-10.3/8.2.2/bin/rd-api de01:d/
+  gzip .stack-work/install/x86_64-linux-tinfo6/9d918e84fe7a0b1a34181819ba567c0f47f721374dbb8070c76ed2c65393d9b2/8.10.7/bin/rd-api
+  scp .stack-work/install/x86_64-linux-tinfo6/9d918e84fe7a0b1a34181819ba567c0f47f721374dbb8070c76ed2c65393d9b2/8.10.7/bin/rd-api.gz de03:d/
 
-  on de01,
+  on de03,
   cd ~/d/
+  gunzip rd-api.gz
   chmod +x rd-api
   env WEB_ROOT=$PWD ./rd-api
-  curl -v http://138.201.95.248:8082/rd/
-  curl -I http://138.201.95.248:8082/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+  curl -v http://de03.dev.emacsos.com:8082/rd/
+  curl -I http://de03.dev.emacsos.com:8082/virtio-win-0.1.215.iso
   okay.
 
-  378M gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+  516M virtio-win-0.1.215.iso
 
   on ryzen5,
-  tmake stack exec rd -- -d ~/d/.blocks -o ~/d/ http://138.201.95.248:8082/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
+  tmake stack exec rd -- -d ~/d/.blocks -o ~/d/ http://138.201.95.248:8082/virtio-win-0.1.215.iso
 
+  below is a run log from old rd version.
   #+BEGIN_SRC sh
     sylecn@ryzen5:~/projects/reliable-download$ tmake stack exec rd -- -d ~/d/.blocks -o ~/d/ http://138.201.95.248:8082/gitlab-ce_10.3.5-ce.0_amd64_xenial.deb
     Tue May  8 00:45:31 CST 2018
@@ -551,6 +554,7 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
+** 2022-03-14 build on debian 9. push a new release to pypi.
 ** 2019-02-28 bug: rd-api -d java/
 option -d: cannot parse value `java/'
 
