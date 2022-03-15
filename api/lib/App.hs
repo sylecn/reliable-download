@@ -20,6 +20,7 @@ import Control.Error
 import qualified Database.Redis as R
 import qualified Data.HashMap.Strict as M
 
+import CliVersion (cliVersion)
 import Type
 import Config
 import Lib (sha1sum, genBlocks)
@@ -66,12 +67,12 @@ processNewFileAsyncMaybe rc fbp = do
     case fmap fsFromBytes oldStatus of
       Just FileStatusError -> do
         setResultE <- liftIO $ do
-          infol rc $ showt strKey <> " was in " <> showt FileStatusError <> " status"
+          infol rc $ "file status was " <> showt FileStatusError <> ", retry now"
           DB.set rc strKey $ fsBytes FileStatusWorking
         throwOnLeftMsg setResultE $ "set file status to " <> showt FileStatusWorking <> " failed"
         liftIO $ writeChan (rcFileChan rc) fbp
-      Just FileStatusDone -> liftIO $ infol rc "file was processed before"
-      Just FileStatusWorking -> liftIO $ infol rc "file is being processed by worker"
+      Just FileStatusDone -> liftIO $ debugl rc $ "file status is " <> showt FileStatusDone
+      Just FileStatusWorking -> liftIO $ debugl rc $ "file status is " <> showt FileStatusWorking
       _ -> liftIO $ errorl rc "Unexpected file status"
 
 -- | GET /rd/.* handler
@@ -83,7 +84,7 @@ getRdHandler rc = do
 
   let filepath = webRoot (rcConfig rc) </> T.unpack path
   fileStatusE <- lift $ do
-    liftIO $ infol rc $ "user request " <> showt filepath
+    liftIO $ infol rc $ "user request rd metadata for " <> showt filepath
     liftIO $ catchIOError
       (fmap Right (getFileStatus filepath))
       (\e -> do
@@ -125,7 +126,8 @@ mkApp :: RDRuntimeConfig -> ScottyM ()
 mkApp rc = do
   get (literal "/rd/") $ json $
       object ["ok" .= True
-             ,"app" .= ("reliable-download api" :: T.Text)]
+             ,"app" .= ("reliable-download api" :: T.Text)
+             ,"version" .= T.pack cliVersion]
 
   get (regex "^/rd/(.*)") $ do
     result <- runExceptT $ getRdHandler rc

@@ -97,6 +97,7 @@ runApiServer rdConfig = do
         startWorkers rc
     else
         warnl rc $ sformat "No redis, not starting workers"
+    infol rc $ sformat ("rd-api " % string) cliVersion
     infol rc $ sformat ("webRoot is " % string) (webRoot config)
     infol rc $ sformat ("will listen on " % string % ":" % int) (host config) (port config)
     let warpSettings = ( setFdCacheDuration 10

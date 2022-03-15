@@ -10,10 +10,11 @@ import qualified Data.ByteString.Lazy as LB
 import qualified Data.Text as T
 
 import qualified Database.Redis as R
+import Formatting
 
 import Type
 import Config
-import Lib (sha1sumOnBytes)
+import Lib (sha1sumOnBytes, humanReadableSize)
 import Utils
 
 -- | read file range data as LB.ByteString. handle must be a handle to an
@@ -55,7 +56,9 @@ fileWorker rc = forever $ do
       errorl rc $ "Set file status failed: " <> showt reply
     Right _ -> do
       debugl rc $ "Set file status to " <> showt resultStatus <> " for " <> showt filepath
-      infol rc $ "fileWorker done for " <> showt filepath
+      infol rc $ sformat
+        ("fileWorker done for " % string % ", " % stext % ", " % int % " blocks")
+        filepath (humanReadableSize (fbpFileSize fbp)) (length (fbpBlocks fbp))
   return ()
     where
       -- | calculate sha1 for a single block. return IO True on success.

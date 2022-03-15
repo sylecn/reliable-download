@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2022-03-14>
+Time-stamp: <2022-03-15>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2022-03-14 project dir structure
@@ -34,8 +34,9 @@ Time-stamp: <2022-03-14>
 
   on ryzen5,
   cd ~/projects/reliable-download/
-  gzip .stack-work/install/x86_64-linux-tinfo6/9d918e84fe7a0b1a34181819ba567c0f47f721374dbb8070c76ed2c65393d9b2/8.10.7/bin/rd-api
-  scp .stack-work/install/x86_64-linux-tinfo6/9d918e84fe7a0b1a34181819ba567c0f47f721374dbb8070c76ed2c65393d9b2/8.10.7/bin/rd-api.gz de03:d/
+  FN=`stack exec which rd-api`
+  gzip -k "$FN"
+  scp "$FN.gz" de03:d/
 
   on de03,
   cd ~/d/
@@ -49,7 +50,8 @@ Time-stamp: <2022-03-14>
   516M virtio-win-0.1.215.iso
 
   on ryzen5,
-  tmake stack exec rd -- -d ~/d/.blocks -o ~/d/ http://138.201.95.248:8082/virtio-win-0.1.215.iso
+  tmake stack exec rd -- -d ~/d/.blocks -o ~/d/ http://de03.dev.emacsos.com:8082/virtio-win-0.1.215.iso
+  tmake ~/d/rd -d ~/d/.blocks -o ~/d/ http://de03.dev.emacsos.com:8082/virtio-win-0.1.215.iso
 
   below is a run log from old rd version.
   #+BEGIN_SRC sh
@@ -554,7 +556,27 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
+** 2022-03-15 client log, don't show each block fetch. show progress instead.
+- log overall progress every 30s
+- xx/xx blocked fetched, xx%
+  percentage show integer.
+  when percentage is 100% but still a few blocks to DL, show "almost there"
+
+  could also just use floor float, which would show 99%.
+  that's better.
+
+** 2022-03-15 TODO stack test should not rely on
+/home/sylecn/persist/cache/ideaIC-2018.1.tar.gz
+
+try use a smaller file within git tree.
 ** 2022-03-14 build on debian 9. push a new release to pypi.
+- binary built on ryzen5 won't work because of high libc version.
+  #+BEGIN_SRC sh
+    root@de03:~/d# ./rd-api --version
+    ./rd-api: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.27' not found (required by ./rd-api)
+    ./rd-api: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.29' not found (required by ./rd-api)
+  #+END_SRC
+
 ** 2019-02-28 bug: rd-api -d java/
 option -d: cannot parse value `java/'
 
@@ -585,6 +607,59 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2022-03-15 client log.
+#+BEGIN_SRC sh
+  sylecn@ryzen5:~/projects/reliable-download$ tmake ~/d/rd -d ~/d/.blocks -o ~/d/ http://de03.dev.emacsos.com:8082/virtio-win-0.1.215.iso
+  Tue 15 Mar 2022 11:08:14 AM CST
+  running command: /home/sylecn/d/rd -d /home/sylecn/d/.blocks -o /home/sylecn/d/ http://de03.dev.emacsos.com:8082/virtio-win-0.1.215.iso
+  2022-03-15T03:08:15  I  GET /rd/ api ok
+  2022-03-15T03:08:15  I  Downloading file: virtio-win-0.1.215.iso, 515.9 MiB, 258 blocks
+  2022-03-15T03:08:15  I  0 new block(s) ready on server side
+  2022-03-15T03:08:15  I  No new block ready on server side, waiting 1s
+  2022-03-15T03:08:17  I  92 new block(s) ready on server side
+  2022-03-15T03:08:18  I  44 new block(s) ready on server side
+  2022-03-15T03:08:19  I  95 new block(s) ready on server side
+  2022-03-15T03:08:19  I  27 new block(s) ready on server side
+  2022-03-15T03:08:22  I  block 0 fetched
+  2022-03-15T03:08:22  I  block 4 fetched
+  2022-03-15T03:08:22  I  block 2 fetched
+  2022-03-15T03:08:23  I  block 5 fetched
+#+END_SRC
+
+- DONE "xx new blocks ready on server side" is confusing.
+  is it total blocks or new blocks?
+
+  this should be debug log.
+  print one info log when all blocks ready on server side.
+
+- server side log.
+  DONE when fetch block, there is no need to log "user request xxx".
+
+  #+BEGIN_SRC sh
+    root@de03:~/d# env WEB_ROOT=$PWD ./rd-api
+    2022-03-15T03:06:18  I  creating 2 file worker(s)
+    2022-03-15T03:06:18  I  fileWorker is waiting for jobs...
+    2022-03-15T03:06:18  I  fileWorker is waiting for jobs...
+    2022-03-15T03:06:18  I  webRoot is /root/d
+    2022-03-15T03:06:18  I  will listen on 0.0.0.0:8082
+    2022-03-15T03:08:15  I  user request "/root/d/virtio-win-0.1.215.iso"
+    2022-03-15T03:08:15  I  "/root/d/virtio-win-0.1.215.iso" is a new file, sending task to worker
+    2022-03-15T03:08:15  I  fileWorker working on "/root/d/virtio-win-0.1.215.iso"
+    2022-03-15T03:08:16  I  user request "/root/d/virtio-win-0.1.215.iso"
+    2022-03-15T03:08:16  I  file is being processed by worker
+    2022-03-15T03:08:17  I  user request "/root/d/virtio-win-0.1.215.iso"
+    2022-03-15T03:08:17  I  file is being processed by worker
+    2022-03-15T03:08:18  I  user request "/root/d/virtio-win-0.1.215.iso"
+    2022-03-15T03:08:18  I  file is being processed by worker
+    2022-03-15T03:08:18  I  fileWorker done for "/root/d/virtio-win-0.1.215.iso"
+    2022-03-15T03:08:18  I  fileWorker is waiting for jobs...
+    2022-03-15T03:08:19  I  user request "/root/d/virtio-win-0.1.215.iso"
+    2022-03-15T03:08:19  I  file was processed before
+  #+END_SRC
+
+  fileWorker: when all blocks done, show how many blocks created, block size,
+  total file size.
+
 ** 2021-10-07 When combine blocks to final file, do not use more disk space than original file size.
    - Note taken on [2022-03-14 Mon 21:44] \\
      in 1.2.0.0 when -l is given, it will do rolling combine. won't take 2x

@@ -101,6 +101,7 @@ tests:
     source-dirs:
     - test
     - api/lib
+    - cli-version
     dependencies:
     - reliable-download
     - hspec

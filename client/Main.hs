@@ -263,10 +263,11 @@ loopUntilAllBlocksReady rc url rdResp oldReadyBlocks downloadTask = do
       readyBlocks = filter blockIsReady blocks
       newReadyBlocks = filter ((`notElem` oldReadyBlocks) . getBlockId) readyBlocks
       allBlocksReady = all blockIsReady blocks
-  infol rc $ (showt . length) newReadyBlocks <> " new block(s) ready on server side"
+  debugl rc $ (showt . length) newReadyBlocks <> " new block(s) ready on server side"
   addTasks downloadTask $ map (fetchBlock rc url rdResp) newReadyBlocks
-  if allBlocksReady then
+  if allBlocksReady then do
     -- loop finished
+    infol rc $ "all " <> (showt . length) blocks <> " block(s) ready on server side"
     return rdResp
   else do
     when (null newReadyBlocks) $ do
