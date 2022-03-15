@@ -1,6 +1,6 @@
 -- | Utils contains general functions that is useful for all haskell projects.
 
-module Utils where
+module RD.Utils where
 
 import qualified Data.Text as T
 

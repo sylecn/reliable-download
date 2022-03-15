@@ -1,8 +1,8 @@
-module Opts (argParser) where
+module RD.Server.Cli.Opts (argParser) where
 
 import Options.Applicative
 
-import Config
+import RD.Server.Config
 
 argParser :: Parser RDConfig
 argParser = RDConfig

@@ -1,4 +1,4 @@
-module App (mkApp, mkWaiApp) where
+module RD.Server.App (mkApp, mkWaiApp) where
 
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
@@ -20,12 +20,12 @@ import Control.Error
 import qualified Database.Redis as R
 import qualified Data.HashMap.Strict as M
 
-import CliVersion (cliVersion)
-import Type
-import Config
-import Lib (sha1sum, genBlocks)
-import Utils
-import qualified DB
+import RD.CliVersion (cliVersion)
+import RD.Types
+import RD.Server.Config
+import RD.Lib (sha1sum, genBlocks)
+import RD.Utils
+import qualified RD.Server.DB as DB
 
 -- | fill block sha1sum, if sha1sum is not ready yet, put "pending" there.
 fillSha1sum :: RDRuntimeConfig -> FillBlockParam -> IO [BlockWithChecksum]

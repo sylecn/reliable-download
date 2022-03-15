@@ -18,10 +18,10 @@ import qualified Data.ByteString.Lazy as LB
 import qualified Data.Text as T
 import qualified Data.HashMap.Strict as H
 
-import Config
-import Lib (sha1sumOnBytes, guessFilename, genBlocks, humanReadableSize)
-import Worker (fileRange, sha1sumFileRange)
-import App (mkWaiApp)
+import RD.Lib (sha1sumOnBytes, guessFilename, genBlocks, humanReadableSize)
+import RD.Server.Config
+import RD.Server.Worker (fileRange, sha1sumFileRange)
+import RD.Server.App (mkWaiApp)
 
 -- | decode response as json object.
 jsonObject :: SResponse -> Maybe J.Object

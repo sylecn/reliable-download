@@ -1,4 +1,4 @@
-module OptsDoc where
+module RD.Server.Cli.OptsDoc where
 
 rdApiDescription :: String
 rdApiDescription = "rd-api is an HTTP file server that provides static file hosting and reliable\n\

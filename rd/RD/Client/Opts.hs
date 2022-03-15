@@ -1,25 +1,11 @@
-module Opts (RDOptions(..), argParser, RDClientRuntimeConfig(..)) where
-
-import qualified Data.Text as T
+module RD.Client.Opts
+    ( RDOptions(..)
+    , argParser
+    , RDClientRuntimeConfig(..)) where
 
 import Options.Applicative
-import qualified System.Logger as L
 
-data RDOptions = RDOptions
-  { blockMaxRetry :: Int
-  , keepBlockData :: Bool
-  , rollingCombine :: Bool
-  , tempDir :: FilePath
-  , outputDir :: FilePath
-  , workerCount :: Int
-  , forceOverwrite :: Bool
-  , verbose :: Bool
-  , showVersion :: Bool
-  , urls :: [T.Text] } deriving (Show)
-
-data RDClientRuntimeConfig = RDClientRuntimeConfig
-    { rdOptions :: RDOptions
-    , rdLogger :: L.Logger }
+import RD.Client.Types
 
 argParser :: Parser RDOptions
 argParser = RDOptions
@@ -66,6 +52,13 @@ argParser = RDOptions
       <> short 'f'
       <> help "overwrite exiting target file in OUTPUT_DIR"
       <> showDefault )
+  <*> option auto
+      (  long "progress-interval"
+      <> short 'i'
+      <> help "how often to show download progress, in seconds"
+      <> showDefault
+      <> value 10
+      <> metavar "N" )
   <*> switch
       (  long "verbose"
       <> short 'v'

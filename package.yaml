@@ -56,52 +56,44 @@ library:
 
 executables:
   rd-api:
-    source-dirs:
-    - api
-    - api/lib
-    - cli-version
-    main: Main.hs
+    source-dirs: rd-api
+    main: RD.Server.Cli.Main
     dependencies:
     - reliable-download
     ghc-options:
     - -threaded
     - -O2
   rd:
-    source-dirs:
-    - client
-    - cli-version
-    main: Main.hs
+    source-dirs: rd
+    main: RD.Client.Main
     dependencies:
-    - reliable-download    # I only need the Type module
+    - reliable-download
+    - io-thread-pool
     - http-conduit
     - http-client
     - http-types
     - retry
     - socket
-    - io-thread-pool
     ghc-options:
     - -threaded
     - -O2
   maybet:
     source-dirs: misc/maybet
-    main: Main.hs
-    dependencies:
-    - reliable-download
+    main: Main
     ghc-options:
     - -threaded
   logtest:
     source-dirs: misc/logtest
-    main: Main.hs
+    main: Main
     ghc-options:
     - -threaded
 
 tests:
   all-tests:
-    main: Main.hs
+    main: Main
     source-dirs:
     - test
-    - api/lib
-    - cli-version
+    - rd-api
     dependencies:
     - reliable-download
     - hspec

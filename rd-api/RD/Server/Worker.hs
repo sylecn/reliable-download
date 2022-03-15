@@ -1,4 +1,4 @@
-module Worker (startWorkers, sha1sumFileRange, fileRange) where
+module RD.Server.Worker (startWorkers, sha1sumFileRange, fileRange) where
 
 import Control.Concurrent.Chan
 import System.IO (IOMode(ReadMode), withBinaryFile)
@@ -12,10 +12,10 @@ import qualified Data.Text as T
 import qualified Database.Redis as R
 import Formatting
 
-import Type
-import Config
-import Lib (sha1sumOnBytes, humanReadableSize)
-import Utils
+import RD.Lib (sha1sumOnBytes, humanReadableSize)
+import RD.Utils
+import RD.Types
+import RD.Server.Config
 
 -- | read file range data as LB.ByteString. handle must be a handle to an
 -- opened file.

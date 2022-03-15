@@ -1,4 +1,4 @@
-module Main (main) where
+module RD.Server.Cli.Main (main) where
 
 import Data.String (fromString)
 import System.Environment (getEnvironment)
@@ -17,12 +17,12 @@ import System.Exit (die)
 import qualified Database.Redis as R
 import qualified Text.PrettyPrint.ANSI.Leijen as D
 
-import Config
-import CliVersion (cliVersion)
-import Opts (argParser)
-import OptsDoc (rdApiDescription)
-import App (mkWaiApp)
-import Worker (startWorkers)
+import RD.Server.Config
+import RD.CliVersion (cliVersion)
+import RD.Server.Cli.Opts (argParser)
+import RD.Server.Cli.OptsDoc (rdApiDescription)
+import RD.Server.App (mkWaiApp)
+import RD.Server.Worker (startWorkers)
 
 -- | parse int env var, if it exists and is an int, return Right (Just i).
 -- if it exists and doesn't parse, return Left msg with key and value info.

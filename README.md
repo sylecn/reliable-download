@@ -12,13 +12,13 @@ Here is the command help:
 $ rd-api --help
 rd-api - reliable download server
 
-Usage: rd-api [-h|--host HOST] [-p|--port PORT] [--redis-host REDIS_HOST]
-              [--redis-port REDIS_PORT] [-d|--web-root DIR] [-w|--worker INT]
+Usage: rd-api [-h|--host HOST] [-p|--port PORT] [--redis-host REDIS_HOST] 
+              [--redis-port REDIS_PORT] [-d|--web-root DIR] [-w|--worker INT] 
               [-v|--verbose] [-V|--version]
   rd-api is an HTTP file server that provides static file hosting and reliable
   download api for rd client.
   
-  rd-api serves files under web-root. You can use it like ```python3 -m http.server```
+  rd-api serves files under web-root. You can use it like python3 -m http.server
   
   In addition, if rd command line tool is used to do the download, it will
   download in a reliable way by downloading in 2MiB blocks and verify checksum
@@ -57,7 +57,6 @@ Available options:
   -v,--verbose             show more debug message
   -V,--version             show program version and exit
   -h,--help                Show this help text
-
 ```
 
 ```
@@ -66,7 +65,8 @@ rd - reliable download client
 
 Usage: rd [-r|--block-max-retry INT] [-k|--keep] [-l|--rolling-combine] 
           [-d|--temp-dir TEMP_DIR] [-o|--output-dir OUTPUT_DIR] 
-          [-w|--worker INT] [-f|--force] [-v|--verbose] [-V|--version] [URL...]
+          [-w|--worker INT] [-f|--force] [-i|--progress-interval N] 
+          [-v|--verbose] [-V|--version] [URL...]
   Download large files across slow and unstable network reliably. Requires using
   rd-api on server side. For more information, see rd-api --help
 
@@ -76,13 +76,15 @@ Available options:
                            combined
   -l,--rolling-combine     delete each block data right after combine, conflict
                            with --keep
-  -d,--temp-dir TEMP_DIR   the dir to keep block download
-                           data (default: ".blocks")
+  -d,--temp-dir TEMP_DIR   the dir to keep block download data
+                           (default: ".blocks")
   -o,--output-dir OUTPUT_DIR
-                           the dir to keep the final combined
-                           file (default: ".")
+                           the dir to keep the final combined file
+                           (default: ".")
   -w,--worker INT          concurrent HTTP download worker (default: 5)
   -f,--force               overwrite exiting target file in OUTPUT_DIR
+  -i,--progress-interval N how often to show download progress, in seconds
+                           (default: 10)
   -v,--verbose             show more debug message
   -V,--version             show version number and exit
   -h,--help                Show this help text

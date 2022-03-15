@@ -51,6 +51,9 @@ see rd-api_.
 ChangeLog
 ---------
 
+* v1.3.0.0 2022-03-15
+  - feature: add download progress logging
+
 * v1.2.0.0 2022-03-14
   - feature: add --rolling-combine option. allow combine big file when disk space is low.
 

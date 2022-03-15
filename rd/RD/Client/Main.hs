@@ -1,4 +1,4 @@
-module Main (main) where
+module RD.Client.Main (main) where
 
 import Options.Applicative
 import Data.Maybe (isJust, fromMaybe)
@@ -12,7 +12,8 @@ import System.IO.Error
 import System.Exit
 import System.FilePath ((</>))
 import Data.Text.Encoding (decodeUtf8)
-import Control.Concurrent (threadDelay)
+import Control.Concurrent.MVar
+import Control.Concurrent (threadDelay, forkIO)
 import Control.Monad.Trans.Maybe
 import Control.Monad.IO.Class (liftIO)
 import System.Socket (SocketException)
@@ -27,36 +28,16 @@ import Network.HTTP.Client (path, responseStatus)
 import Formatting
 import Control.Retry (retrying, constantDelay, limitRetries, rsIterNumber)
 import qualified System.Logger as L
-
-import Lib (sha1sumOnBytes, guessFilename, humanReadableSize)
-import CliVersion (cliVersion)
-import Utils
-import Type
-import Opts
 import Task
 
--- | log a msg using given log level
-clientLogl :: L.Level -> RDClientRuntimeConfig -> T.Text -> IO ()
-clientLogl level rc msg = do
-  let logger = rdLogger rc
-  L.log logger level $ L.msg msg
-  L.flush logger
-
--- | log a debug msg
-debugl :: RDClientRuntimeConfig -> T.Text -> IO ()
-debugl = clientLogl L.Debug
-
--- | log an info msg
-infol :: RDClientRuntimeConfig -> T.Text -> IO ()
-infol = clientLogl L.Info
-
--- | log an warn msg
-warnl :: RDClientRuntimeConfig -> T.Text -> IO ()
-warnl = clientLogl L.Warn
-
--- | log an error msg
-errorl :: RDClientRuntimeConfig -> T.Text -> IO ()
-errorl = clientLogl L.Error
+import RD.Types
+import RD.Lib (sha1sumOnBytes, guessFilename, humanReadableSize)
+import RD.CliVersion (cliVersion)
+import RD.Utils
+import RD.Client.Types
+import RD.Client.Logging
+import RD.Client.Opts
+import RD.Client.Progress
 
 -- | best padding for this many blocks
 bestPadding :: Integer -> Int
@@ -113,7 +94,7 @@ fetchBlockFromHttp rc fbp = do
           let blockTargetFile = fbpBlockTargetFile fbp
           debugl rc $ "writing block data to " <> showt blockTargetFile
           LB.writeFile blockTargetFile bodyLBS
-          infol rc $ "block " <> showt blockId <> " fetched"
+          debugl rc $ "block " <> showt blockId <> " fetched"
           return True
       else do
           errorl rc $ "sha1sum verification failed for " <> showt filename <> " block " <> showt blockId <> ", expect " <> showt sha1sum
@@ -186,8 +167,8 @@ combineBlocks rc rdResp = do
     forM_ (getBlockTargetFilenames opts rdResp) $ \blockFilename -> do
       debugl rc $ "appending block file " <> showt blockFilename
       content <- LB.readFile blockFilename
-      LB.appendFile targetFilename content  -- TODO how to handle error here?
-                                            -- let it crash?
+      LB.appendFile targetFilename content  -- how to handle error here?
+                                            -- let it crash.
       when (rollingCombine (rdOptions rc)) $ do
         debugl rc $ "delete block file " <> showt blockFilename
         catchIOError (removeFile blockFilename)
@@ -229,8 +210,8 @@ downloadFile rc url = do
   unless (respOk rdResp) $ do
     liftIO $ errorl rc $ "GET /rd/ api failed: " <> showt (respMsg rdResp)
     mzero
-  liftIO $ infol rc "GET /rd/ api ok"
-  let (_filename, targetFilename) = getTargetFilename opts rdResp
+  let (baseFilename, targetFilename) = getTargetFilename opts rdResp
+  liftIO $ infol rc $ "GET /rd/ api ok for " <> showt baseFilename
   fileExist <- liftIO $ doesFileExist targetFilename
   when (fileExist && not (forceOverwrite opts)) $ do
     liftIO $ warnl rc $ "Warning: skip already existing file " <> showt targetFilename <> ", use -f to force overwrite"
@@ -239,10 +220,17 @@ downloadFile rc url = do
     infol rc $ "Downloading file: " <> respPath rdResp <> ", "
              <> humanReadableSize (respFileSize rdResp)
              <> ", " <> showt (respBlockCount rdResp) <> " blocks"
+    incrementTotalBlockCount rc (fromIntegral (respBlockCount rdResp))
+    setCurrentFileName rc (respPath rdResp)
+    setCurrentFileTotalBlockCount rc (fromIntegral (respBlockCount rdResp))
+
     rdResp2 <- loopUntilAllBlocksReady rc url rdResp [] downloadTask
     results <- getTaskResults downloadTask
     if and results then do
+      showProgress rc
       resultMaybe <- runMaybeT $ combineBlocks rc rdResp2
+      when (isJust resultMaybe) $ do
+          incrementDLFileCount rc 1
       return $ isJust resultMaybe
     else do
       errorl rc $ (showt . length . filter id) results <> " blocks failed."
@@ -264,7 +252,12 @@ loopUntilAllBlocksReady rc url rdResp oldReadyBlocks downloadTask = do
       newReadyBlocks = filter ((`notElem` oldReadyBlocks) . getBlockId) readyBlocks
       allBlocksReady = all blockIsReady blocks
   debugl rc $ (showt . length) newReadyBlocks <> " new block(s) ready on server side"
-  addTasks downloadTask $ map (fetchBlock rc url rdResp) newReadyBlocks
+  addTasks downloadTask $
+           map (\b -> do
+                  isSuccess <- fetchBlock rc url rdResp b
+                  when isSuccess $ incrementDownloadedBlockCount rc 1
+                  return isSuccess
+               ) newReadyBlocks
   if allBlocksReady then do
     -- loop finished
     infol rc $ "all " <> (showt . length) blocks <> " block(s) ready on server side"
@@ -288,8 +281,12 @@ cliApp opts = do
                      L.setDelimiter "  ")
                     L.defSettings
   logger <- L.new logSettings
+  progress <- newMVar emptyProgress {
+                piTotalFileCount=length (urls opts)
+              }
   let rc = RDClientRuntimeConfig { rdOptions=opts
-                                 , rdLogger=logger}
+                                 , rdLogger=logger
+                                 , rdProgress=progress }
   debugl rc $ "command line options: " <> showt opts
   let dir = tempDir opts
   catchIOError (createDirectoryIfMissing True dir)
@@ -297,11 +294,13 @@ cliApp opts = do
                   errorl rc $ "Create temp dir " <> showt dir <> " failed: " <> showt e
                   exitFailure)
   debugl rc $ "using temp dir: " <> showt dir
+  _progressTid <- forkIO $ showProgressLoop rc 0
   -- resultsMaybe :: [Maybe Bool]
   resultsMaybe <- mapM (runMaybeT . downloadFile rc) (urls opts)
   let results = map (fromMaybe False) resultsMaybe
-  if and results then
-      infol rc "All urls downloaded."
+  if and results then do
+      showProgressAllDone rc
+      exitSuccess    -- will auto terminate _progressTid thread.
   else do
       errorl rc $ (showt . length . filter not) results <> " urls failed/skipped."
       exitFailure
@@ -312,15 +311,18 @@ main = do
   if showVersion opts then
       putStrLn $ "rd " <> cliVersion
   else
-    if null $ urls opts then do
-      putStrLn "No URLs given, nothing to do. See rd --help"
-      exitFailure
-    else
-        if keepBlockData opts && rollingCombine opts then do
-            putStrLn "Error: option --keep and --rolling-combine can not be used at the same time.\nSee rd --help"
+      -- check options are valid, logically.
+      if null $ urls opts then
+          do
+            putStrLn "No URLs given, nothing to do. See rd --help"
             exitFailure
-        else
-            cliApp opts
+      else
+          if keepBlockData opts && rollingCombine opts then
+              do
+                putStrLn "Error: option --keep and --rolling-combine can not be used at the same time.\nSee rd --help"
+                exitFailure
+          else
+              cliApp opts
   where
     parserInfo = info (argParser <**> helper)
       (  fullDesc

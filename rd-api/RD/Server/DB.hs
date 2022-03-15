@@ -1,11 +1,11 @@
-module DB where
+module RD.Server.DB where
 
 import qualified Data.Text as T
 import qualified Data.ByteString as B
 import qualified Database.Redis as R
 
-import Config
-import Utils
+import RD.Utils
+import RD.Server.Config
 
 -- | insert a key value to db, if key does not exist in db.
 insertIfNotExist :: RDRuntimeConfig -> B.ByteString -> B.ByteString -> IO (Either T.Text Bool)

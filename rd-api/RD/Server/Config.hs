@@ -1,4 +1,4 @@
-module Config where
+module RD.Server.Config where
 
 import qualified Database.Redis as R
 import Control.Concurrent.Chan
@@ -9,7 +9,7 @@ import Control.Monad.IO.Class
 
 import qualified System.Logger as L
 
-import Type
+import RD.Types
 
 -- | rd-api configuration, supports cli arguments or env variable.
 data RDConfig = RDConfig {

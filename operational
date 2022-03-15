@@ -4,13 +4,13 @@ Time-stamp: <2022-03-15>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2022-03-14 project dir structure
-- lib      shared code for server and client, the reliable-download library
-- api      rd-api cli Main
-- api/lib  rd-api cli logic
-- client   rd cli Main
-- cli-version    cli-version string shared by rd-api and rd cli Main
-- misc/    learning tools and temp codes
-- test/    tests
+- lib           shared code for server and client, the reliable-download library
+- rd-api        rd-api cli tool, server side
+- rd            rd cli tool, client side
+- misc/         learning tools and temp codes
+- test/         tests
+- package.yaml  stack project description
+- pypi/         for release on pypi, see pypi/Makefile
 
 ** 2018-05-09 how to release latest code on PyPI? how to make a release?
 - update version number in package.yaml, src/CliVersion.hs
@@ -352,20 +352,6 @@ https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
   $HOME/.cache/reliable-downloader/rd-api.db
 - 
 
-** 2018-05-07 loopUntilAllBlocksReady, how to track progress?
-use a thread pool to download blocks, print overall progress when some parts
-done or some time elapsed.
-
-- how to track progress?
-  I used mapM to fetch block.
-  results <- mapM (fetchBlockAsync opts rc url rdResp) newReadyBlocks
-
-  how to show some progress info?
-  I need a supervisor thread. and I need a shared data structure.
-
-  a mapM is not enough to do this.
-- 
-
 ** 2018-05-05 allow config app at runtime.
 via env var and command line parameter.
 
@@ -556,14 +542,10 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
-** 2022-03-15 client log, don't show each block fetch. show progress instead.
-- log overall progress every 30s
-- xx/xx blocked fetched, xx%
-  percentage show integer.
-  when percentage is 100% but still a few blocks to DL, show "almost there"
+** 2022-03-15 rd client, is there a built-in repeat/loop function?
+IO () -> IO ()
 
-  could also just use floor float, which would show 99%.
-  that's better.
+I should not need to write showProgressLoop explicitly.
 
 ** 2022-03-15 TODO stack test should not rely on
 /home/sylecn/persist/cache/ideaIC-2018.1.tar.gz
@@ -607,6 +589,157 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2018-05-07 loopUntilAllBlocksReady, how to track progress?
+use a thread pool to download blocks, print overall progress when some parts
+done or some time elapsed.
+
+- how to track progress?
+  I used mapM to fetch block.
+  results <- mapM (fetchBlockAsync opts rc url rdResp) newReadyBlocks
+
+  how to show some progress info?
+  I need a supervisor thread. and I need a shared data structure.
+
+  a mapM is not enough to do this.
+- 
+
+** 2022-03-15 client log, don't show each block fetch. show progress instead.
+- log overall progress every 30s
+- xx/xx blocks fetched, xx%
+  percentage show integer.
+  when percentage is 100% but still a few blocks to DL, show "almost there"
+
+  could also just use floor float, which would show 99%.
+  that's better.
+- design
+  - a ShowProgress thread, show a msg every 30s.
+    or a configurable amount of time via --progress-interval N
+
+    use a MVar or TVar to store state.
+    totalFileCount
+    downloadedFileCount
+    totalBlockCount
+    downloadedBlockCount
+
+    track block count is easy.
+    how to track file count?
+
+    well, it's similar.
+
+    create a MVar or TVar in main thread, pass it to ShowProgress thread.
+    when add URL, increment totalFileCount.
+    when file combined, increment downloadedFileCount.
+    when add block, increment totalBlockCount.
+    when DL block, increment downloadedBlockCount.
+
+    when downloadedFileCount == totalFileCount, ShowProgress thread exits.
+
+    I will use MVar.
+    Control.Concurrent.MVar
+    https://hackage.haskell.org/package/base-4.16.0.0/docs/Control-Concurrent-MVar.html
+
+  - when main thread modify progress and know DL finished, immediately show a
+    progress msg and terminate ShowProgress thread.
+
+- implementation
+  add MVar progress in rc.
+
+  only master thread will run putMVar, other thread only run readMVar.
+
+  resultsMaybe <- mapM (runMaybeT . downloadFile rc) (urls opts)
+
+  DONE update url/file count and block count when they happen.
+
+  DONE only show progress if it has some progress. otherwise, it will be false
+  positive. 5/123 blocks to 5/123 blocks is not a progress.
+  // code didn't work. why? I see, I didn't update lastDownloadedBlockCount
+
+- test it locally
+  use a shorter progress interval
+  stack exec rd -- -f -i 1 -d ~/d/.blocks -o ~/d/ http://localhost:8082/ideaIC-2018.1.tar.gz http://localhost:8082/dropbear-2019.78.tar.bz2
+  stack exec rd -- -f -i 1 -d ~/d/.blocks -o ~/d/ http://localhost:8082/guile-3.0.0.tar.xz http://localhost:8082/dropbear-2019.78.tar.bz2
+
+- build a version to test in de03 prod.
+  make sure client side log is good.
+
+  on ryzen5,
+  rsync -n -air lib rd rd-api misc test package.yaml s02:projects/reliable-download/
+  rsync -air lib rd rd-api misc test package.yaml s02:projects/reliable-download/
+
+- problems
+  - incrementDownloadedBlockCount rc 1
+    this is not run. dl block count is always 0.
+
+    is it because of lazy evaluation? nope. it's inside IO(), it will
+    eventually run when result is used.
+
+    I see. fetchBlock will reuse existing file on disk. DL happens in
+    fetchBlockFromHttp. I didn't increment dl block count there.
+
+    just 
+    incrementDownloadedBlockCount rc 1
+    when fetchBlock return IO True.
+
+    who calls fetchBlock?
+
+    loopUntilAllBlocksReady
+    addTasks downloadTask $ map (fetchBlock rc url rdResp) newReadyBlocks
+
+    I need to wrap fetchBlock here. do book keeping on dl block progress.
+
+    #+BEGIN_SRC sh
+      addTasks downloadTask $
+		 map (\b -> do
+			isSuccess <- fetchBlock rc url rdResp b
+			when isSuccess $ incrementDownloadedBlockCount rc 1
+			return isSuccess
+		     ) newReadyBlocks
+    #+END_SRC
+
+    haskell is good at function and monad composition.
+    I don't even need the do notation.
+
+    I will leave it to another time. may not be easy to read.
+
+  - DONE current progress is overall block percentage.
+    that's not for current file.
+    I don't think that's meaningful.
+
+    overall DL block percentage may as well go from 90% to 30%, when it switch
+    files.
+
+    keep track of blocks for current file instead?
+
+    is there a current file concept? does rd finish one file before starting
+    to fetch block for next file?
+
+    resultsMaybe <- mapM (runMaybeT . downloadFile rc) (urls opts)
+    mapM, it's sequential map.
+
+    so there is a current file concept.
+
+    add two variable
+    , piCurrentFileBlockCount :: Int
+    , piCurrentFileDownloadedBlockCount :: Int
+
+    also include current DL file name.
+    show it in progress log.
+
+  - DONE how to rewrite this more concisely?
+
+    showProgress :: RDClientRuntimeConfig -> IO ()
+    showProgress rc = do
+        p <- readMVar (rdProgress rc)
+        showProgress1 rc p
+
+    (a -> IO b) -> IO a -> IO b
+    this is (reverse) bind.
+    =<<
+
+    readMVar (rdProgress rc) >>= showProgress1 rc
+
+  - DONE always show a 100% progress when all blocks for a file fetched.
+
 ** 2022-03-15 client log.
 #+BEGIN_SRC sh
   sylecn@ryzen5:~/projects/reliable-download$ tmake ~/d/rd -d ~/d/.blocks -o ~/d/ http://de03.dev.emacsos.com:8082/virtio-win-0.1.215.iso

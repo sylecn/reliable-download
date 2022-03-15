@@ -1,6 +1,6 @@
 -- | Lib contains functions that is useful for current project.
 
-module Lib
+module RD.Lib
     ( sha1sum
     , sha1sumOnBytes
     , guessFilename
@@ -15,7 +15,7 @@ import qualified Data.ByteString.Lazy as LB
 import Crypto.Hash (digestToHexByteString, hashlazy, Digest, SHA1)
 import Formatting hiding (bytes)
 
-import Type
+import RD.Types
 
 -- | convert byte number to MiB. small number will become 0.
 humanReadableSize :: Integer -> T.Text
