@@ -1,10 +1,30 @@
 # reliable-download
 
-Although this project is written in haskell, it is distributed on
-[pypi](https://pypi.org/) so that user can install it more easily. Because
-python is usually bundled in the system. To install rd-api and rd, see their
-[pypi page](https://pypi.org/project/rd-api/). The same doc is in git as well,
-see `./pypi/rd-api/README.rst`.
+Reliable Download is designed to download large files across unreliable
+network via HTTP. It is especially effective when transfer files across
+[the GFW](https://en.wikipedia.org/wiki/Great_Firewall). It has a server side
+called rd-api, a client side called rd. To run reliable download, run rd-api
+on file source node to serve the file, run rd on target node to download the
+file. You can think of it as enhanced http static file server. To learn how
+reliable download works, see ```rd-api --help``` below.
+
+## Installation
+
+Reliable download is developed and tested on linux. Windows and MacOS is not
+supported. Theoretically the code can be ported to support other OS, but I
+don't have the time to handle testing and distribution.
+
+Reliable download server side and client side is both written in
+Haskell. However, it is distributed on [pypi](https://pypi.org/) so that user
+can install it more easily. Because python and pip is usually bundled with
+linux system. To install rd-api and rd, see their
+[pypi page](https://pypi.org/project/rd-api/). The same doc is kept in git as
+well, see `./pypi/rd-api/README.rst`.
+
+- [rd-api pypi page](https://pypi.org/project/rd-api/)
+- [rd pypi page](https://pypi.org/project/rd/)
+
+## Design and Command Line Help
 
 Here is the command help:
 
@@ -89,3 +109,38 @@ Available options:
   -V,--version             show version number and exit
   -h,--help                Show this help text
 ```
+
+## Developer Notes, Build the Project by Yourself
+
+see ./operational file for developer notes.
+
+To build the project, install [stack tool](https://www.haskellstack.org/),
+then run:
+
+```
+stack build --pedantic
+```
+
+Binary will be produced in ````stack path --local-install-root`/bin/``` dir.
+
+You may also run built-in tests:
+
+```
+stack build --pedantic --test
+```
+
+## Difference With Other Similar Tools
+
+BitTorrent can be used to transfer big files across unreliable network
+reliably. I like the protocol a lot. But you need to create torrent file in
+advance and either use a public tracker or run your own tracker server. It's
+too much work to share a simple big file.
+
+curl, wget, aria2 can be used to download file via HTTP. But they do not check
+whether downloaded data is valid. This makes "continue downloading a partially
+downloaded file" useless in unreliable network.
+
+## License
+
+Reliable download is released under GPLv3+. Source code can be found at
+https://gitlab.emacsos.com/sylecn/reliable-download

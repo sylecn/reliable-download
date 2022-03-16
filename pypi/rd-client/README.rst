@@ -48,6 +48,12 @@ see rd-api_.
 
 .. _rd-api: https://pypi.org/project/rd-api/
 
+License
+---------------
+
+Reliable download is released under GPLv3+. Source code can be found at
+https://gitlab.emacsos.com/sylecn/reliable-download
+
 ChangeLog
 ---------
 

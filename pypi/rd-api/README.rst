@@ -73,6 +73,12 @@ Reliable download is implemented this way:
 Reliable download is written in Haskell, binary is distributed on PyPI for
 easy installation on linux system. Reliable download only runs in linux.
 
+License
+---------------
+
+Reliable download is released under GPLv3+. Source code can be found at
+https://gitlab.emacsos.com/sylecn/reliable-download
+
 ChangeLog
 ---------
 

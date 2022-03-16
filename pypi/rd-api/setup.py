@@ -35,7 +35,8 @@ setup(
     long_description=open('README.rst').read(),
     long_description_content_type="text/x-rst",
     license="GPLv3+",
-    url="https://pypi.python.org/pypi/rd-api/",
+    url="https://gitlab.emacsos.com/sylecn/reliable-download",
+    download_url="https://pypi.org/project/rd-api/",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: System Administrators',
@@ -49,6 +50,6 @@ setup(
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9'
+        'Programming Language :: Python :: 3.9',
     ]
 )

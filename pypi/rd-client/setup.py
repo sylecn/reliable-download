@@ -35,7 +35,8 @@ setup(
     long_description=open('README.rst').read(),
     long_description_content_type="text/x-rst",
     license="GPLv3+",
-    url="https://pypi.python.org/pypi/rd/",
+    url="https://gitlab.emacsos.com/sylecn/reliable-download",
+    download_url="https://pypi.org/project/rd/",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: End Users/Desktop',

@@ -13,7 +13,9 @@ Time-stamp: <2022-03-16>
 - pypi/         for release on pypi, see pypi/Makefile
 
 ** 2018-05-09 how to release latest code on PyPI? how to make a release?
-- update version number in package.yaml, src/CliVersion.hs
+- update version number in
+  - lib/RD/CliVersion.hs (required, used by pypi pkg)
+  - package.yaml (optional)
 - build binary
   stack build --test --pedantic
   stack exec hlint -- -g
@@ -561,18 +563,6 @@ I should not need to write showProgressLoop explicitly.
 /home/sylecn/persist/cache/ideaIC-2018.1.tar.gz
 
 try use a smaller file within git tree.
-** 2022-03-14 build on debian 9. push a new release to pypi.
-- binary built on ryzen5 won't work because of high libc version.
-  #+BEGIN_SRC sh
-    root@de03:~/d# ./rd-api --version
-    ./rd-api: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.27' not found (required by ./rd-api)
-    ./rd-api: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.29' not found (required by ./rd-api)
-  #+END_SRC
-
-- problems
-  - is readme_renderer still required? does twine require it?
-    yes. it's required for "twine check" command.
-
 ** 2019-02-28 bug: rd-api -d java/
 option -d: cannot parse value `java/'
 
@@ -580,17 +570,6 @@ option -d: cannot parse value `java/'
   this works fine.
 
   probably a python wrapper issue.
-
-** 2018-05-10 use a proper module hierarchy.
-import RD.Utils
-import RD.Api.Lib
-import RD.Api.Config
-import RD.Client.Lib
-import RD.Client.Opts
-
-- stack repl doesn't like duplicated Lib module. also for libs, correct mdoule
-  hierarchy is important.
-- 
 
 ** 2018-05-09 test the app under unstable network.
 I remember there are tools that can simulate packet loss.
@@ -603,6 +582,40 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2018-05-10 use a proper module hierarchy.
+import RD.Utils
+import RD.Api.Lib
+import RD.Api.Config
+import RD.Client.Lib
+import RD.Client.Opts
+
+- stack repl doesn't like duplicated Lib module. also for libs, correct mdoule
+  hierarchy is important.
+- 
+
+** 2022-03-14 build on debian 9. push a new release to pypi.
+- binary built on ryzen5 won't work because of high libc version.
+  #+BEGIN_SRC sh
+    root@de03:~/d# ./rd-api --version
+    ./rd-api: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.27' not found (required by ./rd-api)
+    ./rd-api: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.29' not found (required by ./rd-api)
+  #+END_SRC
+
+- problems
+  - is readme_renderer still required? does twine require it?
+    yes. it's required for "twine check" command.
+
+** 2022-03-16 io-thread-pool, github field in package.yaml is wrong.
+how to use my own non-github url for source URL?
+
+- search: haskell package.yaml github field
+
+  package.yaml is from https://github.com/sol/hpack
+
+  use git field.
+
+** 2022-03-16 add io-thread-pool as a git submodule. so the project can be built by other people.
+just use git URL in extra-deps.
 ** 2018-05-07 loopUntilAllBlocksReady, how to track progress?
 use a thread pool to download blocks, print overall progress when some parts
 done or some time elapsed.
