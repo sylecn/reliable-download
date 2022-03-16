@@ -10,19 +10,18 @@ reliable download works, see ```rd-api --help``` below.
 
 ## Installation
 
-Reliable download is developed and tested on linux. Windows and MacOS is not
+Reliable download is developed and tested in linux. Windows and MacOS is not
 supported. Theoretically the code can be ported to support other OS, but I
 don't have the time to handle testing and distribution.
 
 Reliable download server side and client side is both written in
 Haskell. However, it is distributed on [pypi](https://pypi.org/) so that user
 can install it more easily. Because python and pip is usually bundled with
-linux system. To install rd-api and rd, see their
-[pypi page](https://pypi.org/project/rd-api/). The same doc is kept in git as
-well, see `./pypi/rd-api/README.rst`.
+linux system. To install rd-api and rd, see their pypi page below. The same
+doc is kept in git as well, see `./pypi/rd-api/README.rst`.
 
-- [rd-api pypi page](https://pypi.org/project/rd-api/)
-- [rd pypi page](https://pypi.org/project/rd/)
+- [rd-api on pypi](https://pypi.org/project/rd-api/)
+- [rd on pypi](https://pypi.org/project/rd/)
 
 ## Design and Command Line Help
 
