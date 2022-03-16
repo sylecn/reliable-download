@@ -7,16 +7,16 @@
 
 from setuptools import setup, find_packages
 
-def get_version_from_package_yaml():
-    with open("../../package.yaml", "r") as f:
+def get_version_from_CliVersion():
+    with open("../../lib/RD/CliVersion.hs", "r") as f:
         for line in f:
-            if line.startswith("version:"):
-                return line.split(":")[1].strip()
-    raise Exception("version not found in package.yaml")
+            if line.startswith("cliVersion = "):
+                return line.split('"')[1].strip()
+    raise Exception("version not found in CliVersion.hs")
 
 setup(
     name="rd-api",
-    version=get_version_from_package_yaml(),
+    version=get_version_from_CliVersion(),
     packages=find_packages(),
     package_data={
         'rdapi': ['rd-api']
@@ -33,6 +33,7 @@ setup(
     maintainer_email="sylecn@gmail.com",
     description="reliable-download server",
     long_description=open('README.rst').read(),
+    long_description_content_type="text/x-rst",
     license="GPLv3+",
     url="https://pypi.python.org/pypi/rd-api/",
     classifiers=[

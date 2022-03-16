@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2022-03-15>
+Time-stamp: <2022-03-16>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2022-03-14 project dir structure
@@ -21,6 +21,11 @@ Time-stamp: <2022-03-15>
   README.md
   rd-api-README.rst
   rd-README.rst
+- build wheel and test it in production server
+  make dist -C pypi
+
+  wheel will be built in pypi/rd-api/dist, pypi/rd-client/dist dir.
+
 - release binary on PyPI
   export TWINE_PASSWORD=xxx
   make all -C pypi
@@ -28,6 +33,11 @@ Time-stamp: <2022-03-15>
   To release only the server or client:
   make api -C pypi
   make client -C pypi
+
+- problems
+  - how to sync build files for pypi?
+    rsync -n -air --files-from=pypi/build_files ./ s02:projects/reliable-download/
+    rsync -air --files-from=pypi/build_files ./ s02:projects/reliable-download/
 
 ** 2018-05-08 example run in prod env
 - try it on de03
@@ -558,6 +568,10 @@ try use a smaller file within git tree.
     ./rd-api: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.27' not found (required by ./rd-api)
     ./rd-api: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.29' not found (required by ./rd-api)
   #+END_SRC
+
+- problems
+  - is readme_renderer still required? does twine require it?
+    yes. it's required for "twine check" command.
 
 ** 2019-02-28 bug: rd-api -d java/
 option -d: cannot parse value `java/'

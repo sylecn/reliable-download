@@ -6,12 +6,11 @@ bootstrap:
 	@if ! python3 -c 'import readme_renderer'; then python3 -m pip install --user readme_renderer ; fi
 	@test -f ~/.local/bin/wheel || python3 -m pip install --user wheel
 	@test -f ~/.local/bin/twine || python3 -m pip install --user twine
-check: bootstrap
-	python3 setup.py check -r -s
-dist: check
+dist: bootstrap
 	cp -u `stack path --local-install-root`/bin/rd-api rdapi/
 	rm -rf dist/*
 	python3 setup.py -q bdist_wheel --universal
+	~/.local/bin/twine check --strict dist/*
 upload: dist
 	~/.local/bin/twine upload dist/*
 testupload: dist
