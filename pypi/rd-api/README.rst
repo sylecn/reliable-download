@@ -82,6 +82,10 @@ https://gitlab.emacsos.com/sylecn/reliable-download
 ChangeLog
 ---------
 
+* v1.4.0.0 2023-10-18
+
+  - feature: rd-api listen host defaults to ::, so it works on both ipv4 and ipv6.
+
 * v1.1.3.0 2022-03-14
 
   - bugfix: revised logging messages. rd-api supports --verbose option. debug msg is not shown by default.

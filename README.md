@@ -66,7 +66,7 @@ Usage: rd-api [-h|--host HOST] [-p|--port PORT] [--redis-host REDIS_HOST]
     stop download anytime, and continue later by running the same command again.
 
 Available options:
-  -h,--host HOST           http listen host (default: "0.0.0.0")
+  -h,--host HOST           http listen host (default: "::")
   -p,--port PORT           http listen port (default: 8082)
   --redis-host REDIS_HOST  redis host (default: "127.0.0.1")
   --redis-port REDIS_PORT  redis port (default: 6379)

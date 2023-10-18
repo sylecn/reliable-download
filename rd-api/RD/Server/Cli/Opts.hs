@@ -11,7 +11,7 @@ argParser = RDConfig
       <> short 'h'
       <> help "http listen host"
       <> showDefault
-      <> value "0.0.0.0"
+      <> value "::"
       <> metavar "HOST" )
   <*> option auto
       (  long "port"
