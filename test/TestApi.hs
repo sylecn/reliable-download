@@ -108,17 +108,20 @@ spec = do
 
   describe "fileRange, hGet n bytes" $ do
     it "should work" $ do
-      contentLB <- liftIO $ fileRange "/home/sylecn/persist/cache/ideaIC-2018.1.tar.gz" 0 2097151
+      let contentLength = 2400
+      contentLB <- liftIO $ fileRange "./test/sha1sumFileRange1.dat" 0 contentLength
       let first10Byte = LB.take 10 contentLB
-      sha1sumOnBytes first10Byte `shouldBe` "04bdadb7bd09681ea2d3f84210feff6549b6ab45"
-      LB.length contentLB `shouldBe` 2097152
-      let last10Byte = LB.drop (2097152 - 10) contentLB
-      sha1sumOnBytes last10Byte `shouldBe` "c643bc36514fce49013d31f80775dbbc9bf9e9a7"
+      sha1sumOnBytes first10Byte `shouldBe` "2059f97d0abc77d255109b52e5240d268225149f"
+      fromIntegral (LB.length contentLB) `shouldBe` contentLength
+      let last10Byte = LB.drop (fromIntegral (contentLength - 10)) contentLB
+      sha1sumOnBytes last10Byte `shouldBe` "d079691750a673076a7d0b5ffaf5371c9981e868"
 
   describe "sha1sumFileRange" $ do
     it "should work" $ do
-      sha1 <- liftIO $ sha1sumFileRange "/home/sylecn/persist/cache/ideaIC-2018.1.tar.gz" 0 2097151
-      sha1 `shouldBe` "4690b050834d4059d40ad6f63bf91d6a4558bb71"
+      -- to get expected hash,
+      -- head -c 6 ./test/sha1sumFileRange1.dat |sha1sum
+      sha1 <- liftIO $ sha1sumFileRange "./test/sha1sumFileRange1.dat" 0 5
+      sha1 `shouldBe` "1f8ac10f23c5b5bc1167bda84b833e5c057a77d2"
 
 -- | like get, but accept path in [T.Text] format and do url safe encoding.
 getPath :: [T.Text] -> WaiSession st SResponse
