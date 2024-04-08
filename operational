@@ -29,11 +29,17 @@ Time-stamp: <2024-04-08>
   wheel will be built in pypi/rd-api/dist, pypi/rd-client/dist dir.
 
 - release binary on PyPI
-  export TWINE_PASSWORD=xxx
+
+  export RD_API_TWINE_TOKEN=xxx
+  export RD_CLIENT_TWINE_TOKEN=xxx
   make all -C pypi
 
-  To release only the server or client:
+  To release only the server:
+  export RD_API_TWINE_TOKEN=xxx
   make api -C pypi
+
+  To release only the client:
+  export RD_CLIENT_TWINE_TOKEN=xxx
   make client -C pypi
 
 - problems

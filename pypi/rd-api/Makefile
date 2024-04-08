@@ -12,7 +12,7 @@ dist: bootstrap
 	python3 setup.py -q bdist_wheel --universal
 	~/.local/bin/twine check --strict dist/*
 upload: dist
-	~/.local/bin/twine upload dist/*
+	~/.local/bin/twine upload -u __token__ -p $(RD_API_TWINE_TOKEN) dist/*
 testupload: dist
 	env TWINE_PASSWORD=XVgnIVGGFjlMRxDV ~/.local/bin/twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 install: dist
