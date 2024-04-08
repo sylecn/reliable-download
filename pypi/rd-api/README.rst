@@ -29,10 +29,25 @@ Installation
 
 To install this package:
 
+For Debian/Ubuntu,
+
 .. code-block:: bash
 
    $ sudo apt install -y redis-server pipx   # redis is used to cache block sha1sum
    $ pipx install rd-api
+
+For RHEL,
+
+.. code-block:: bash
+
+   $ sudo dnf install redis python3-pip
+   $ sudo systemctl start redis
+   $ pip install --user rd-api
+
+To run rd-api
+
+.. code-block:: bash
+
    $ rd-api --help
    $ ~/.local/bin/rd-api --help     # if ~/.local/bin/ is not in PATH
 

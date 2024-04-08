@@ -18,9 +18,24 @@ Installation
 
 To install this package:
 
+For Debian/Ubuntu,
+
 .. code-block:: bash
 
+   $ sudo apt install -y pipx
+   $ pipx install rd
+
+For RHEL,
+
+.. code-block:: bash
+
+   $ sudo dnf install python3-pip
    $ pip install --user rd
+
+To run rd
+
+.. code-block:: bash
+
    $ rd --help
    $ ~/.local/bin/rd --help     # if ~/.local/bin/ is not in PATH
 
