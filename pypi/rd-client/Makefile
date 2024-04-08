@@ -1,4 +1,4 @@
-VERSION := $(shell grep 'version:' ../../package.yaml | cut -d':' -f2 | tr -d ' ')
+VERSION := $(shell grep 'cliVersion =' ../../lib/RD/CliVersion.hs | cut -d'"' -f2)
 
 default:
 	@echo "usage: make [dist|install|upload]"
