@@ -18,7 +18,8 @@ import System.Directory (removeFile)
 import qualified Data.Aeson as J
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Text as T
-import qualified Data.HashMap.Strict as H
+import qualified Data.Aeson.Key as K
+import qualified Data.Aeson.KeyMap as KM
 
 import RD.Lib (sha1sumOnBytes, guessFilename, genBlocks, humanReadableSize)
 import RD.Server.Config
@@ -33,7 +34,7 @@ jsonObject resp = J.decode $ simpleBody resp
 jsonKey :: SResponse -> T.Text -> Maybe J.Value
 jsonKey resp key = do
   m <- jsonObject resp
-  H.lookup key m
+  KM.lookup (K.fromText key) m
 
 jsonKeyAsBool :: SResponse -> T.Text -> Maybe Bool
 jsonKeyAsBool resp key = do

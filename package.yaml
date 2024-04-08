@@ -1,5 +1,5 @@
 name:                reliable-download
-version:             1.2.3.0
+version:             1.2.4.0
 synopsis:            provide reliable download service via HTTP
 description:         reliable-download web application and cli tool
 homepage:            "https://gitlab.emacsos.com/sylecn/reliable-download"

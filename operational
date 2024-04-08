@@ -539,15 +539,6 @@ each block has a block size. I know when it is started and when it is
 finished. I know how many more blocks to fetch. it should be easy to
 estimate. calculate a moving avg speed using the last 5 blocks DLed.
 
-** 2023-11-12 rd, ipv6 based URL not supported.
-- on de05,
-  rd-api -h :: -p 8083 --redis-host 10.96.195.242
-
-  on pve,
-  cd /wh01/share/songs/
-  rd http://[2a01:4f8:c0c:9c42::1]:8083/可一儿歌.tar
-  BUG nope. rd doesn't support ipv6 URL.
-
 ** 2022-03-15 rd client, is there a built-in repeat/loop function?
 IO () -> IO ()
 
@@ -572,6 +563,100 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2023-11-12 rd, ipv6 based URL not supported.
+- on de05,
+  rd-api -h :: -p 8083 --redis-host 10.96.195.242
+
+  on pve,
+  cd /wh01/share/songs/
+  rd http://[2a01:4f8:c0c:9c42::1]:8083/可一儿歌.tar
+  BUG nope. rd doesn't support ipv6 URL.
+
+- 2024-04-08
+  stack exec rd-api -- -h ::
+
+  curl http://[::1]:8082/test/中文.txt
+  this works.
+  stack exec rd -- -v http://127.0.0.1:8082/test/中文.txt
+  this works.
+  stack exec rd -- -v http://[::1]:8082/test/中文.txt
+  this fails.
+
+  getRDResponse :: RDClientRuntimeConfig -> T.Text -> IO RDResponse
+
+  (do
+    req <- parseRequest $ T.unpack url
+    debugl rc $ "GET /rd" <> decodeUtf8 (path req)
+    resp <- httpJSON $ req { path="/rd" <> path req }
+    return $ getResponseBody resp)
+
+  search: haskell http-client host ipv6 address support
+
+  How to make a request to an IPv6 address using the http-client package in haskell? - Stack Overflow
+  https://stackoverflow.com/questions/70863436/how-to-make-a-request-to-an-ipv6-address-using-the-http-client-package-in-haskel
+
+  http-client 0.7.11 has the fix merged.
+
+  lts-18.27 http-client-0.6.4.1
+
+  try upgrade lts.
+
+  lts-20.26 http-client-0.7.13.1
+
+  yeah, that would work.
+
+- problems
+  - tinylog is not in lts-20.26
+
+    build tinylog failed under lts-20.26
+
+    #+begin_quote
+    tinylog                      > Preprocessing library for tinylog-0.15.0..
+    tinylog                      > Building library for tinylog-0.15.0..
+    tinylog                      > [1 of 4] Compiling System.Logger.Message
+    tinylog                      > 
+    tinylog                      > /tmp/stack-f92234dbf5c8a904/tinylog-0.15.0/src/System/Logger/Message.hs:57:1: error:
+    tinylog                      >     Could not find module ‘Data.ByteString.Lazy.Builder’
+    tinylog                      >     Perhaps you meant
+    tinylog                      >       Data.ByteString.Builder (from bytestring-0.11.4.0)
+    tinylog                      >       Data.ByteString.Lazy.Char8 (from bytestring-0.11.4.0)
+    tinylog                      >     Use -v (or `:set -v` in ghci) to see a list of the files searched for.
+    tinylog                      >    |
+    tinylog                      > 57 | import qualified Data.ByteString.Lazy.Builder        as B
+    tinylog                      >    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    tinylog                      > 
+    tinylog                      > /tmp/stack-f92234dbf5c8a904/tinylog-0.15.0/src/System/Logger/Message.hs:58:1: error:
+    tinylog                      >     Could not find module ‘Data.ByteString.Lazy.Builder.Extras’
+    tinylog                      >     Perhaps you meant
+    tinylog                      >       Data.ByteString.Builder.Extra (from bytestring-0.11.4.0)
+    tinylog                      >     Use -v (or `:set -v` in ghci) to see a list of the files searched for.
+    tinylog                      >    |
+    tinylog                      > 58 | import qualified Data.ByteString.Lazy.Builder.Extras as B
+    tinylog                      >    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    #+end_quote
+    last bytestring package that has this module is
+    https://hackage.haskell.org/package/bytestring-0.10.12.1
+    but this is a base package, many pkg fail when this is downgraded.
+
+  - it's better to get rid of tinylog or maintain it myself to drop dependency
+    on
+
+    Data.ByteString.Lazy.Builder
+    Data.ByteString.Lazy.Builder.Extras
+
+  - should really get rid of tinylog.
+    which logger does rd-api use?
+    also tinylog.
+
+  - FIXED fix tinylog turned out to be easy. only need to update the import.
+    no other code change.
+    I can maintain that.
+    see agem10 ~/projects/tinylog/
+
+  - FIXED after fix tinylog. one aeson API change.
+
+    J.decode now returns KeyMap instead of HashMap.
+
 ** 2024-04-06 rd client: when server side doesn't support GET /rd/ api.
 give a more clear msg to client side.
 it's not client side's fault.
