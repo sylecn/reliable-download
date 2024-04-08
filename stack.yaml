@@ -28,7 +28,7 @@ packages:
 extra-deps:
   - git: https://gitlab.emacsos.com/sylecn/io-thread-pool.git
     commit: 58041a07560383bac22f6702074242c3e2097106
-  - git: /home/sylecn/projects/tinylog/.git
+  - git: https://gitlab.emacsos.com/sylecn/tinylog.git
     commit: a49750ffb2923d40e834cec77a9900b4167c2ea5
 
 # Override default flag values for local packages and extra-deps
