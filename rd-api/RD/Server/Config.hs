@@ -71,7 +71,7 @@ defaultRDRuntimeConfig config = do
   conn <- R.connect R.defaultConnectInfo
   fileChan <- newChan
   let logLevel = if verbose config then L.Debug else L.Info
-      logSettings = (L.setFormat (Just "%Y-%0m-%0dT%0H:%0M:%0S") .
+      logSettings = (L.setFormat (Just L.iso8601) .
                      L.setLogLevel logLevel .
                      L.setDelimiter "  ") L.defSettings
   logger <- L.new logSettings

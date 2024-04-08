@@ -356,23 +356,6 @@ https://artyom.me/aeson
 ** 2018-05-06 optparse-applicative :: Stackage Server
 https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
 * later                                                               :entry:
-** 2024-04-07 rd-api, rd: switch to fast-logger, use local datetime in logs, not UTC time. :logging:featurereq:
-- tinylog is not maintained any more. no longer in latest stackage LTS.
-- tinylog types doesn't allow use local time in logs. requires writing lots of code.
-- create a demo project for using RIO and fast-logger.
-  cd ~/projects/
-  stack new rio-fastlogger-demo rio
-
-  app/Main.hs
-  withLogFunc lo
-
-  https://www.stackage.org/haddock/lts-22.15/rio-0.1.22.0/RIO.html#v:withLogFunc
-
-  RIO has built-in log ts support.
-
-  RIO timestamp and level output is not pretty and not easily customizable.
-  maybe later.
-
 ** 2022-03-12 drop redis-server as rd-api dependency.            :featurereq:
 - use a built-in key-value db. such as Berkeley db, sqlite3, or leveldb.
   use a well known path for the db name.
@@ -563,6 +546,23 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2024-04-07 rd-api, rd: switch to fast-logger, use local datetime in logs, not UTC time. :logging:featurereq:
+- tinylog is not maintained any more. no longer in latest stackage LTS.
+- tinylog types doesn't allow use local time in logs. requires writing lots of code.
+- create a demo project for using RIO and fast-logger.
+  cd ~/projects/
+  stack new rio-fastlogger-demo rio
+
+  app/Main.hs
+  withLogFunc lo
+
+  https://www.stackage.org/haddock/lts-22.15/rio-0.1.22.0/RIO.html#v:withLogFunc
+
+  RIO has built-in log ts support.
+
+  RIO timestamp and level output is not pretty and not easily customizable.
+  maybe later.
+
 ** 2023-11-12 rd, ipv6 based URL not supported.
 - on de05,
   rd-api -h :: -p 8083 --redis-host 10.96.195.242

@@ -276,7 +276,7 @@ cliApp :: RDOptions -> IO ()
 cliApp opts = do
   let level = if verbose opts then L.Debug else L.Info
       -- Note: tinylog doesn't support non-GMT dateformat.
-      logSettings = (L.setFormat (Just "%Y-%0m-%0dT%0H:%0M:%0S") .
+      logSettings = (L.setFormat (Just L.iso8601) .
                      L.setLogLevel level .
                      L.setDelimiter "  ")
                     L.defSettings
