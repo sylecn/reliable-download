@@ -527,16 +527,6 @@ cached blocks.
 - give some log in console when file content changes.
 - 
 
-** 2024-04-06 rd client: when server side doesn't support GET /rd/ api.
-give a more clear msg to client side.
-it's not client side's fault.
-
-#+begin_quote
-root@pve:/wh01/share/tv-series/Kingdom# rd http://1.116.206.228:8082/kingdom.tar
-2024-04-06T07:14:31  E  GET /rd/ api failed: "No redis connection, GET /rd/ disabled"
-2024-04-06T07:14:31  E  1 urls failed/skipped.
-#+end_quote
-
 ** 2024-03-12 rd-api, if file is already transferred block by block, I can support
 live compress easily. If the client request compress as param such as
 ?compress=zstd. default is no compress.
@@ -582,6 +572,16 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2024-04-06 rd client: when server side doesn't support GET /rd/ api.
+give a more clear msg to client side.
+it's not client side's fault.
+
+#+begin_quote
+root@pve:/wh01/share/tv-series/Kingdom# rd http://1.116.206.228:8082/kingdom.tar
+2024-04-06T07:14:31  E  GET /rd/ api failed: "No redis connection, GET /rd/ disabled"
+2024-04-06T07:14:31  E  1 urls failed/skipped.
+#+end_quote
+
 ** 2018-05-05 utf-8 character not working well in path.                 :bug:
 curl http://localhost:8082/rd/%E4%B8%AD%E6%96%87%E6%96%87%E4%BB%B6%E5%90%8D.rar
 {"ok":true,"path":"中"}

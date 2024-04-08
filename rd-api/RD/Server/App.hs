@@ -77,7 +77,7 @@ processNewFileAsyncMaybe rc fbp = do
 getRdHandler :: RDRuntimeConfig -> ExceptT T.Text ActionM ()
 getRdHandler rc = do
   unless (rcHasRedis rc) $
-      throwE "No redis connection, GET /rd/ disabled"
+      throwE "No redis on server side, rd client support is disabled"
   req <- lift request
   let reqFilePath = T.intercalate "/" $ drop 1 $ pathInfo req
   let filepath = webRoot (rcConfig rc) </> T.unpack reqFilePath
