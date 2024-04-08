@@ -83,6 +83,7 @@ ChangeLog
 ---------
 
 * v1.5.0.0 2024-04-08
+
   - bugfix: properly handle unicode string in URL path
   - bugfix: use local time in log messages instead of UTC time
   - bugfix: fix -d --web-root option. this option was not working before.
