@@ -8,6 +8,8 @@ import Test.Hspec
 import Test.Hspec.Wai
 import Network.Wai.Test
 import Network.HTTP.Types (status200, encodePathSegments, decodePathSegments)
+import qualified Network.HTTP.Client as C
+import Network.HTTP.Client (parseRequest)
 import Data.Binary.Builder (toLazyByteString)
 import Network.Wai (Application)
 import System.FilePath
@@ -54,6 +56,12 @@ spec = do
       True `shouldBe` True
 
   describe "3rd party libs" $ do
+
+    it "http-client parseRequest should support unicode in URL" $ do
+      req <- liftIO $ parseRequest "http://127.0.0.1:8082/中文.txt"
+      C.host req `shouldBe` "127.0.0.1"
+      C.port req `shouldBe` 8082
+      C.path req `shouldBe` (LB.toStrict . toLazyByteString . encodePathSegments) ["中文.txt"]
 
     it "should encode and decode utf-8 characters in URL" $ do
       (decodePathSegments . LB.toStrict . toLazyByteString . encodePathSegments) ["中文1", "路径2"] `shouldBe` ["中文1", "路径2"]
@@ -149,32 +157,36 @@ apiSpec = with waiApp $ do
       get "/abc" `shouldRespondWith` 404
 
     it "should parse basic path correctly" $ do
-      _resp <- get "/test/rd/abc"
+      _resp <- get "/test-rd/abc"
       liftIO (simpleStatus _resp `shouldBe` status200)
       liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
       liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "abc")
-      _resp <- get "/test/rd/abc/def"
+      _resp <- get "/test-rd/abc/def"
       liftIO (simpleStatus _resp `shouldBe` status200)
       liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
       liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "abc/def")
-      _resp <- get "/test/rd/abc/def/"
+      _resp <- get "/test-rd/abc/def/"
       liftIO (simpleStatus _resp `shouldBe` status200)
       liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
       liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "abc/def/")
 
     it "should parse complex path correctly" $ do
-      _resp <- getPath ["test", "rd", "abc def # ? ghi"]
+      _resp <- getPath ["test-rd", "abc def # ? ghi"]
       liftIO (simpleStatus _resp `shouldBe` status200)
       liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
       liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "abc def # ? ghi")
 
-      _resp <- getPath ["test", "rd", "abc/def.jpg"]
+      _resp <- getPath ["test-rd", "abc/def.jpg"]
       liftIO (simpleStatus _resp `shouldBe` status200)
       liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
       liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "abc/def.jpg")
 
-      -- TODO the escape sequences is not supported by warp.
-      -- _resp <- getPath ["test", "rd", "中文文件名.rar"]
-      -- liftIO (simpleStatus _resp `shouldBe` status200)
-      -- liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
-      -- liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "中文文件名.rar")
+      _resp <- getPath ["test-rd", "中文文件名.rar"]
+      liftIO (simpleStatus _resp `shouldBe` status200)
+      liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
+      liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "中文文件名.rar")
+
+      _resp <- getPath ["test-rd", "foo/中文文件名.rar"]
+      liftIO (simpleStatus _resp `shouldBe` status200)
+      liftIO (jsonKeyAsBool _resp "ok" `shouldBe` Just True)
+      liftIO (jsonKeyAsText _resp "path" `shouldBe` Just "foo/中文文件名.rar")

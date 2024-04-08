@@ -4,14 +4,12 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Data.Either (fromRight)
 import Data.Either.Extra (fromRight')
-import Data.Text.Encoding (decodeUtf8)
 import Control.Concurrent.Chan
 import System.IO.Error (catchIOError)
 import Control.Monad (unless)
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as LT
 
-import Network.Wai (Application)
+import Network.Wai (Application, pathInfo)
 import Web.Scotty
 import Data.Aeson (object, (.=))
 import System.FilePath ((</>))
@@ -34,11 +32,11 @@ fillSha1sum rc fbp = do
   redisReply <- R.runRedis (rcRedisConn rc) $ R.hgetall hashKey
   case redisReply of
     Left reply -> do
-      errorl rc $ "redis hgetall " <> showt hashKey <> " failed: " <> showt reply
+      errorl rc $ "redis hgetall " <> decodeUtf8 hashKey <> " failed: " <> showt reply
       return $ map fillBlock (fbpBlocks fbp) where
         fillBlock (blockId, start, end) = (blockId, start, end, "pending")
     Right blockIdSha1sumAlist -> do
-      debugl rc $ "fillSha1sum: redis hgetall " <> showt hashKey <> " ok"
+      debugl rc $ "fillSha1sum: redis hgetall " <> decodeUtf8 hashKey <> " ok"
       return $ map fillBlock (fbpBlocks fbp) where
         blockIdSha1sumMap = M.fromList blockIdSha1sumAlist
         fillBlock :: Block -> BlockWithChecksum
@@ -54,12 +52,12 @@ processNewFileAsyncMaybe rc fbp = do
   throwOnLeft resultE
   let insertOk = fromRight' resultE
   if insertOk then liftIO $ do
-      infol rc $ showt filePath <> " is a new file, sending task to worker"
+      infol rc $ T.pack filePath <> " is a new file, sending task to worker"
       writeChan (rcFileChan rc) fbp
       return ()
   else do
     oldStatusE <- liftIO $ do
-      debugl rc $ showt filePath <> " is not a new file"
+      debugl rc $ T.pack filePath <> " is not a new file"
       -- if status is error, set it to working, then add task to fileChan
       DB.get rc strKey
     throwOnLeftMsg oldStatusE "get old file status failed"
@@ -80,11 +78,11 @@ getRdHandler :: RDRuntimeConfig -> ExceptT T.Text ActionM ()
 getRdHandler rc = do
   unless (rcHasRedis rc) $
       throwE "No redis connection, GET /rd/ disabled"
-  path <- lift $ param "1"
-
-  let filepath = webRoot (rcConfig rc) </> T.unpack path
+  req <- lift request
+  let reqFilePath = T.intercalate "/" $ drop 1 $ pathInfo req
+  let filepath = webRoot (rcConfig rc) </> T.unpack reqFilePath
   fileStatusE <- lift $ do
-    liftIO $ infol rc $ "user request rd metadata for " <> showt filepath
+    liftIO $ infol rc $ "user request rd metadata for " <> T.pack filepath
     liftIO $ catchIOError
       (fmap Right (getFileStatus filepath))
       (\e -> do
@@ -107,14 +105,14 @@ getRdHandler rc = do
     case resultE of
       Left msg -> json $
           object ["ok" .= False
-                 ,"path" .= path
+                 ,"path" .= reqFilePath
                  ,"filepath" .= filepath
                  ,"msg" .= msg]
       Right _ -> do
           blocksWithSha1sum <- liftIO $ fillSha1sum rc fbp
           json RDResponse { respOk=True
                           , respMsg=""
-                          , respPath=path
+                          , respPath=reqFilePath
                           , respFilePath=filepath
                           , respBlockSize="2MiB"
                           , respFileSize=fileSizeInByte
@@ -129,18 +127,19 @@ mkApp rc = do
              ,"app" .= ("reliable-download api" :: T.Text)
              ,"version" .= T.pack cliVersion]
 
-  get (regex "^/rd/(.*)") $ do
+  get (regex "^/rd/") $ do
     result <- runExceptT $ getRdHandler rc
     case result of
       Left msg -> json rdErrorResponse { respMsg=msg }
       Right resp -> return resp
 
-  get (regex "^/test/rd/(.*)") $ do  -- for testing path capture
-    fullPath :: LT.Text <- param "0"
-    path :: LT.Text <- param "1"
-    let filepath = webRoot (rcConfig rc) </> LT.unpack path
+  get (regex "^/test-rd/") $ do    -- for testing path capture
+    req <- request
+    let fullPath = "/" <> T.intercalate "/" (pathInfo req)
+        reqFilePath = T.intercalate "/" $ drop 1 $ pathInfo req
+    let filepath = webRoot (rcConfig rc) </> T.unpack reqFilePath
     json $ object ["ok" .= True
-                  ,"path" .= path
+                  ,"path" .= reqFilePath
                   ,"filepath" .= filepath
                   ,"fullPath" .= fullPath]
 

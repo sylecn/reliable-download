@@ -1,5 +1,5 @@
 name:                reliable-download
-version:             1.2.1.0
+version:             1.2.2.0
 synopsis:            provide reliable download service via HTTP
 description:         reliable-download web application and cli tool
 homepage:            "https://gitlab.emacsos.com/sylecn/reliable-download"
@@ -25,6 +25,7 @@ default-extensions:
 dependencies:
   - base >= 4.7 && < 5
   # project specific
+  - http-types
   - scotty
   - wai
   - warp
@@ -41,6 +42,7 @@ dependencies:
   # data types
   - bytestring
   - text
+  - utf8-string
   - unordered-containers
   - aeson
   - extra
@@ -71,7 +73,6 @@ executables:
     - io-thread-pool
     - http-conduit
     - http-client
-    - http-types
     - retry
     - socket
     ghc-options:
@@ -99,6 +100,7 @@ tests:
     - hspec
     - hspec-wai
     - http-types
+    - http-client
     - wai-extra
     - unordered-containers
     - binary

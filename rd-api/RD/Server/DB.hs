@@ -13,7 +13,7 @@ insertIfNotExist rc key value = do
   redisReply <- R.runRedis (rcRedisConn rc) $ R.setnx key value
   case redisReply of
     Left reply -> do
-      errorl rc $ "redis setnx " <> showt key <> " failed:\n\t" <> showt reply
+      errorl rc $ "redis setnx " <> decodeUtf8 key <> " failed:\n\t" <> showt reply
       return $ Left "insertIfNotExist on DB failed"
     Right v -> return $ Right v
 
@@ -22,7 +22,7 @@ get rc key = do
   redisReply <- R.runRedis (rcRedisConn rc) $ R.get key
   case redisReply of
     Left reply -> do
-      let msg = "redis get " <> showt key <> " failed: " <> showt reply
+      let msg = "redis get " <> decodeUtf8 key <> " failed: " <> showt reply
       errorl rc msg
       return $ Left msg
     Right v -> return $ Right v
@@ -32,7 +32,7 @@ set rc key value = do
   redisReply <- R.runRedis (rcRedisConn rc) $ R.set key value
   case redisReply of
     Left reply -> do
-      let msg = "redis set " <> showt key <> " to " <> showt value <> " failed: " <> showt reply
+      let msg = "redis set " <> decodeUtf8 key <> " to " <> decodeUtf8 value <> " failed: " <> showt reply
       errorl rc msg
       return $ Left msg
     Right v -> return $ Right v

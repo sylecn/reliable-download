@@ -1,8 +1,14 @@
 -- | Utils contains general functions that is useful for all haskell projects.
 
-module RD.Utils where
+module RD.Utils ( showt
+                , throwOnLeft
+                , throwOnLeftMsg
+                , encodeUtf8
+                , decodeUtf8
+                ) where
 
 import qualified Data.Text as T
+import Data.Text.Encoding (encodeUtf8, decodeUtf8)
 
 import Control.Error
 

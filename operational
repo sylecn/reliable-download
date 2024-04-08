@@ -283,11 +283,36 @@ DONE hoogle-5.0.14
   block download use HTTP/1.1 Range header to fetch that block.
   Range: bytes=0-499
   Range: bytes=500-999
-** 2018-05-05 API spec
-- POST /rd
-  json body
-  {"path": "/path/to/resource"}
-- 
+** 2018-05-05 API spec                                               :design:
+- GET /<path>
+  static file server. works even without redis.
+
+- GET /rd/<path>
+  provides rd API for given static file, requires redis-server.
+
+  when <path> rd metadata is ready, it will return
+  #+begin_src json
+    {
+      "ok": true,                      // metadata is ready or not
+      "msg": "",                       // msg to user
+      "path": "test/中文.txt",          // file path in URL
+      "filepath": "./test/中文.txt",    // file path on server side
+      "file_size": 8,
+      "blocks": [
+	[
+	  0,    // block ID
+	  0,    // start byte, inclusive
+	  7,    // stop byte, inclusive
+	  "69bca99b923859f2dc486b55b87f49689b7358c7"    // block sha1sum
+	]
+      ],
+      "block_count": 1,
+      "block_size": "2MiB"
+    }
+  #+end_src
+
+- GET /test-rd/<path>
+  test rd API path parsing without calculating sha1sum
 
 * lib docs 							      :entry:
 ** 2018-05-06 http client docs
@@ -331,7 +356,7 @@ https://artyom.me/aeson
 ** 2018-05-06 optparse-applicative :: Stackage Server
 https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
 * later                                                               :entry:
-** 2024-04-07 rd-api, rd: switch to fast-logger, use local datetime in logs, not UTC time.
+** 2024-04-07 rd-api, rd: switch to fast-logger, use local datetime in logs, not UTC time. :logging:featurereq:
 - tinylog is not maintained any more. no longer in latest stackage LTS.
 - tinylog types doesn't allow use local time in logs. requires writing lots of code.
 - create a demo project for using RIO and fast-logger.
@@ -348,7 +373,7 @@ https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
   RIO timestamp and level output is not pretty and not easily customizable.
   maybe later.
 
-** 2022-03-12 drop redis-server as rd-api dependency.
+** 2022-03-12 drop redis-server as rd-api dependency.            :featurereq:
 - use a built-in key-value db. such as Berkeley db, sqlite3, or leveldb.
   use a well known path for the db name.
 
@@ -470,7 +495,94 @@ via env var and command line parameter.
   - read-env-var, this is a simple wrapper on lookupEnv and
     Text.Read.readMaybe. Not what I need.
 
-** 2018-05-05 utf-8 character not working well in path.
+* current                                                             :entry:
+** 
+** 2024-04-08 should I use absolute file path in redis key?
+this can reduce some sha1 calculation if user run rd-api in different root dir.
+
+e.g.
+
+cd /foo/bar/
+rd-api
+
+cd /foo/
+rd-api -d bar
+# or
+rd-api -d /foo/bar
+
+** 2024-04-07 when combining blocks to create final file, don't print
+"No block fetched in last 10 seconds" log any more if there is no other files
+in DL list.
+** 2024-04-07 rd-api: when a file content is changed on disk, auto invalidate all
+cached blocks.
+
+- when user request rd metadata, and file's mtime changed, do a sha1sum on
+  first 4M and last 4M of the file. if any of these sha1sum changes,
+  invalidate cache in redis.
+
+  when calculate metadata, cache file's mtime, first 4M and last 4M of the
+  file's content's sha1sum.
+- this will allow DL the correct file when file content for the same file name
+  is changed.
+- give some log in console when file content changes.
+- 
+
+** 2024-04-06 rd client: when server side doesn't support GET /rd/ api.
+give a more clear msg to client side.
+it's not client side's fault.
+
+#+begin_quote
+root@pve:/wh01/share/tv-series/Kingdom# rd http://1.116.206.228:8082/kingdom.tar
+2024-04-06T07:14:31  E  GET /rd/ api failed: "No redis connection, GET /rd/ disabled"
+2024-04-06T07:14:31  E  1 urls failed/skipped.
+#+end_quote
+
+** 2024-03-12 rd-api, if file is already transferred block by block, I can support
+live compress easily. If the client request compress as param such as
+?compress=zstd. default is no compress.
+
+- when the source file is just tar, not compressed format like squashfs or
+  zip, this can speed up transfer by delaying compress.
+
+** 2024-03-12 rd, add an DL remaining time estimate, based on estimated DL speed.
+each block has a block size. I know when it is started and when it is
+finished. I know how many more blocks to fetch. it should be easy to
+estimate. calculate a moving avg speed using the last 5 blocks DLed.
+
+** 2023-11-12 rd, ipv6 based URL not supported.
+- on de05,
+  rd-api -h :: -p 8083 --redis-host 10.96.195.242
+
+  on pve,
+  cd /wh01/share/songs/
+  rd http://[2a01:4f8:c0c:9c42::1]:8083/可一儿歌.tar
+  BUG nope. rd doesn't support ipv6 URL.
+
+** 2022-03-15 rd client, is there a built-in repeat/loop function?
+IO () -> IO ()
+
+I should not need to write showProgressLoop explicitly.
+
+** 2019-02-28 bug: rd-api -d java/
+option -d: cannot parse value `java/'
+
+- stack exec rd-api -- -d t1/
+  this works fine.
+
+  probably a python wrapper issue.
+
+** 2018-05-09 test the app under unstable network.
+I remember there are tools that can simulate packet loss.
+policy in ovs can do it.
+
+- 2018-05-11 tcp - Simulate delayed and dropped packets on Linux - Stack Overflow
+  https://stackoverflow.com/questions/614795/simulate-delayed-and-dropped-packets-on-linux
+
+  test this in vbox VM. stretch01
+  see stretch01 daylog.
+
+* done                                                                :entry:
+** 2018-05-05 utf-8 character not working well in path.                 :bug:
 curl http://localhost:8082/rd/%E4%B8%AD%E6%96%87%E6%96%87%E4%BB%B6%E5%90%8D.rar
 {"ok":true,"path":"中"}
 only first character is in path key.
@@ -543,88 +655,141 @@ only first character is in path key.
 
   - search: haskell how to use non exported function
 
-* current                                                             :entry:
-** 
-** 2024-04-07 when combining blocks to create final file, don't print
-"No block fetched in last 10 seconds" log any more if there is no other files
-in DL list.
-** 2024-04-07 rd-api: when a file content is changed on disk, auto invalidate all
-cached blocks.
-
-- when user request rd metadata, and file's mtime changed, do a sha1sum on
-  first 4M and last 4M of the file. if any of these sha1sum changes,
-  invalidate cache in redis.
-
-  when calculate metadata, cache file's mtime, first 4M and last 4M of the
-  file's content's sha1sum.
-- this will allow DL the correct file when file content for the same file name
-  is changed.
-- give some log in console when file content changes.
-- 
-
-** 2024-04-06 rd client: when server side doesn't support GET /rd/ api.
-give a more clear msg to client side.
-it's not client side's fault.
-
-#+begin_quote
-root@pve:/wh01/share/tv-series/Kingdom# rd http://1.116.206.228:8082/kingdom.tar
-2024-04-06T07:14:31  E  GET /rd/ api failed: "No redis connection, GET /rd/ disabled"
-2024-04-06T07:14:31  E  1 urls failed/skipped.
-#+end_quote
-
-** 2024-03-12 rd-api, if file is already transferred block by block, I can support
-live compress easily. If the client request compress as param such as
-?compress=zstd. default is no compress.
-
-- when the source file is just tar, not compressed format like squashfs or
-  zip, this can speed up transfer by delaying compress.
-
-** 2024-03-12 rd, add an DL remaining time estimate, based on estimated DL speed.
-each block has a block size. I know when it is started and when it is
-finished. I know how many more blocks to fetch. it should be easy to
-estimate. calculate a moving avg speed using the last 5 blocks DLed.
-
-** 2023-11-12 rd-api unicode path bug. rd ipv6 URL bug.
-SCHEDULED: <2024-04-08 Mon>
+** 2023-11-12 rd-api unicode path bug.
 - on de05,
   rd-api -h :: -p 8083 --redis-host 10.96.195.242
 
   on pve,
   cd /wh01/share/songs/
-  rd http://[2a01:4f8:c0c:9c42::1]:8083/可一儿歌.tar
-  BUG nope. rd doesn't support ipv6 URL.
-
   rd http://49.12.207.182:8083/可一儿歌.tar
+  unicode in path is not supported. on rd-api server side.
 
 - rd-api: .: openBinaryFile: inappropriate type (is a directory)
   2023-11-12T06:07:53  I  user request rd metadata for "."
 
   BUG: unicode character in PATH is not properly supported.
 
-** 2022-03-15 rd client, is there a built-in repeat/loop function?
-IO () -> IO ()
+- 2024-04-08 this is a known bug in warp. see later section in this file.
+  check whether it's fixed in latest warp.
+  check wai/warp changelog.
 
-I should not need to write showProgressLoop explicitly.
+  search: wai/warp changelog path unicode
 
-** 2019-02-28 bug: rd-api -d java/
-option -d: cannot parse value `java/'
+  https://hackage.haskell.org/package/wai-3.2.4/changelog
+  nothing.
+  wai 2.x doesn't have a changelog file.
 
-- stack exec rd-api -- -d t1/
-  this works fine.
+- wait. curl on the resource works fine.
+  only rd fail. it's my code's problem?
 
-  probably a python wrapper issue.
+  I see, it's client issue. not server issue.
+  client when send request to server, should encode URL first.
+  it should be easy to fix.
 
-** 2018-05-09 test the app under unstable network.
-I remember there are tools that can simulate packet loss.
-policy in ovs can do it.
+  downloadFile :: RDClientRuntimeConfig -> T.Text -> MaybeT IO Bool
 
-- 2018-05-11 tcp - Simulate delayed and dropped packets on Linux - Stack Overflow
-  https://stackoverflow.com/questions/614795/simulate-delayed-and-dropped-packets-on-linux
+  I see, the url is of type T.Text, not properly encoded before sending via
+  HTTP.
 
-  test this in vbox VM. stretch01
-  see stretch01 daylog.
+  getRDResponse rc url
 
-* done                                                                :entry:
+  req <- parseRequest $ T.unpack url
+
+  http-client parseRequest
+
+  I can add test case for this function.
+
+  this works. it will auto encode URL unsafe characters.
+
+- resp <- httpJSON $ req { path="/rd" <> path req }
+
+  update this code to always parse from full URL. don't use <> on path segment.
+
+  test it.
+
+  stack exec rd-api -- -v
+  stack exec rd -- http://127.0.0.1:8082/中文.txt
+
+  I do need the path segment.
+  client is correct.
+  now check server side, how it convert the path back to Text.
+- getRdHandler :: RDRuntimeConfig -> ExceptT T.Text ActionM ()
+
+- when using urlDecode on matched path.
+
+  path <- lift $ param "1"
+  debugl rc $ "path is " <> showt path
+
+  it's incomplete.
+
+-   get (regex "^/rd/(.*)") $ do
+  this capture doesn't capture all of path.
+
+  try just use raw path, no captures.
+
+  how to get path inside ActionM?
+
+  https://hackage.haskell.org/package/wai-3.2.4/docs/Network-Wai.html#g:3
+
+  using a query param seems easier to parse in server side.
+  in next major release, I think I can switch to use new API on client side.
+  server side will serve both old and new /rd/ API.
+
+- DL works now.
+  log msg needs some work.
+  DONE also the /test/rd/ URL requires some work. change to /test-rd/ should fix it.
+  
+  use T.pack instead of showt should fix the log msg.
+
+  client side:
+  #+begin_quote
+  2024-04-08T07:20:22  I  GET /rd/ api ok for "\20013\25991.txt"
+  2024-04-08T07:20:22  I  Downloading file: /rd/中文.txt, 0.0 MiB, 1 blocks
+  2024-04-08T07:20:22  I  all 1 block(s) ready on server side
+  2024-04-08T07:20:22  I  progress: [100%] 1/1 blocks, /rd/中文.txt
+  2024-04-08T07:20:22  I  Combining blocks to create "/home/sylecn/d/t2/\20013\25991.txt"
+  2024-04-08T07:20:22  I  File downloaded to "/home/sylecn/d/t2/\20013\25991.txt"
+  2024-04-08T07:20:22  I  All urls downloaded. 1 files, 1 blocks.
+  #+end_quote
+
+  server side:
+  #+begin_quote
+  sylecn@agem10:~/projects/reliable-download$ stack exec rd-api -- -v
+  2024-04-08T07:18:34  I  creating 2 file worker(s)
+  2024-04-08T07:18:34  I  fileWorker is waiting for jobs...
+  2024-04-08T07:18:34  I  fileWorker is waiting for jobs...
+  2024-04-08T07:18:34  I  rd-api 1.4.0.0
+  2024-04-08T07:18:34  I  webRoot is .
+  2024-04-08T07:18:34  I  will listen on :::8082
+  2024-04-08T07:19:15  D  path is "/rd/\20013\25991.txt"
+  2024-04-08T07:19:15  D  decodedPath is "\20013\25991.txt"
+  2024-04-08T07:19:15  D  filepath is "./\20013\25991.txt"
+  2024-04-08T07:19:15  I  user request rd metadata for "./\20013\25991.txt"
+  2024-04-08T07:19:15  I  "./\20013\25991.txt" is a new file, sending task to worker
+  2024-04-08T07:19:15  I  fileWorker working on "./\20013\25991.txt"
+  2024-04-08T07:19:15  D  fillSha1sum: redis hgetall "./-\135.txt_2097152" ok
+  2024-04-08T07:19:15  D  redis hset "./-\135.txt_2097152" 0 ok
+  2024-04-08T07:19:15  D  Set file status to done for "./\20013\25991.txt"
+  2024-04-08T07:19:15  I  fileWorker done for ./中文.txt, 0.0 MiB, 1 blocks
+  2024-04-08T07:19:15  I  fileWorker is waiting for jobs...
+  2024-04-08T07:20:22  D  path is "/rd/\20013\25991.txt"
+  2024-04-08T07:20:22  D  decodedPath is "\20013\25991.txt"
+  2024-04-08T07:20:22  D  filepath is "./\20013\25991.txt"
+  2024-04-08T07:20:22  I  user request rd metadata for "./\20013\25991.txt"
+  2024-04-08T07:20:22  D  "./\20013\25991.txt" is not a new file
+  2024-04-08T07:20:22  D  file status is done
+  2024-04-08T07:20:22  D  fillSha1sum: redis hgetall "./-\135.txt_2097152" ok
+  #+end_quote
+
+- blockSha1sumHashKey fbp = Char8.pack (fbpFilepath fbp) <> "_" <> (Char8.pack . show) (fbpBlockSize fbp)
+  redis key seems not well encoded.
+
+- git grep -n showt
+  check and fixed all usage of showt.
+
+- MOVED should I use full path in redis key?
+  this can reduce some sha1 calculation if user run rd-api in different root dir.
+
 ** 2022-03-15 stack test should not rely on
 /home/sylecn/persist/cache/ideaIC-2018.1.tar.gz
 

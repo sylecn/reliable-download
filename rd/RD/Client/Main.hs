@@ -11,7 +11,6 @@ import Control.Exception
 import System.IO.Error
 import System.Exit
 import System.FilePath ((</>))
-import Data.Text.Encoding (decodeUtf8)
 import Control.Concurrent.MVar
 import Control.Concurrent (threadDelay, forkIO)
 import Control.Monad.Trans.Maybe
@@ -80,7 +79,7 @@ fetchBlockFromHttp rc fbp = do
       rangeHeader = "bytes=" <> Char8.pack (show start) <> "-"
                              <> Char8.pack (show end)
   assert (sha1sum /= "pending") (return ())
-  debugl rc $ "downloading " <> showt filename <> " block " <> showt blockId
+  debugl rc $ "downloading " <> T.pack filename <> " block " <> showt blockId
   req <- parseRequest $ T.unpack $ fbpUrl fbp
   response <- httpLBS $ addRequestHeader "Range" rangeHeader req
   let statuscode = statusCode $ responseStatus response
@@ -92,12 +91,12 @@ fetchBlockFromHttp rc fbp = do
       let bodyLBS = getResponseBody response
       if (decodeUtf8 . LB.toStrict . sha1sumOnBytes) bodyLBS == sha1sum then do
           let blockTargetFile = fbpBlockTargetFile fbp
-          debugl rc $ "writing block data to " <> showt blockTargetFile
+          debugl rc $ "writing block data to " <> T.pack blockTargetFile
           LB.writeFile blockTargetFile bodyLBS
           debugl rc $ "block " <> showt blockId <> " fetched"
           return True
       else do
-          errorl rc $ "sha1sum verification failed for " <> showt filename <> " block " <> showt blockId <> ", expect " <> showt sha1sum
+          errorl rc $ "sha1sum verification failed for " <> T.pack filename <> " block " <> showt blockId <> ", expect " <> showt sha1sum
           return False
 
 -- | return block target file name (just base filename, no dir info)
@@ -120,7 +119,7 @@ fetchBlock rc url rdResp blockWithChecksum = do
               createDirectoryIfMissing True blockFileDir
               return True)
             (\e -> do
-               errorl rc $ "Create temp dir " <> showt blockFileDir <> " failed: " <> showt e
+               errorl rc $ "Create temp dir " <> T.pack blockFileDir <> " failed: " <> showt e
                return False)
   if not result then
       return False
@@ -163,22 +162,22 @@ combineBlocks rc rdResp = do
            return False)
       unless result mzero
   liftIO $ do
-    infol rc $ "Combining blocks to create " <> showt targetFilename
+    infol rc $ "Combining blocks to create " <> T.pack targetFilename
     forM_ (getBlockTargetFilenames opts rdResp) $ \blockFilename -> do
-      debugl rc $ "appending block file " <> showt blockFilename
+      debugl rc $ "appending block file " <> T.pack blockFilename
       content <- LB.readFile blockFilename
       LB.appendFile targetFilename content  -- how to handle error here?
                                             -- let it crash.
       when (rollingCombine (rdOptions rc)) $ do
-        debugl rc $ "delete block file " <> showt blockFilename
+        debugl rc $ "delete block file " <> T.pack blockFilename
         catchIOError (removeFile blockFilename)
                      (\e -> do
                         errorl rc $ "Remove block file " <>
                                T.pack blockFilename <> " failed: " <> showt e)
-    infol rc $ "File downloaded to " <> showt targetFilename
+    infol rc $ "File downloaded to " <> T.pack targetFilename
     unless (keepBlockData opts) $ do
       let tempdir = tempDir opts </> filename
-      debugl rc $ "Delete temporary block data dir " <> showt tempdir
+      debugl rc $ "Delete temporary block data dir " <> T.pack tempdir
       catchIOError (removeDirectoryRecursive tempdir)
                    (\e -> warnl rc $ "Warning: delete temp block data dir failed: " <> showt e)
 
@@ -187,6 +186,7 @@ getRDResponse :: RDClientRuntimeConfig -> T.Text -> IO RDResponse
 getRDResponse rc url = catches
   (do
     req <- parseRequest $ T.unpack url
+    debugl rc $ "GET /rd" <> decodeUtf8 (path req)
     resp <- httpJSON $ req { path="/rd" <> path req }
     return $ getResponseBody resp)
    [Handler (\ (e :: HttpException) -> do
@@ -208,13 +208,13 @@ downloadFile rc url = do
   downloadTask <- liftIO $ newTask $ workerCount opts
   rdResp <- liftIO $ getRDResponse rc url
   unless (respOk rdResp) $ do
-    liftIO $ errorl rc $ "GET /rd/ api failed: " <> showt (respMsg rdResp)
+    liftIO $ errorl rc $ "GET /rd/ api failed: " <> respMsg rdResp
     mzero
   let (baseFilename, targetFilename) = getTargetFilename opts rdResp
-  liftIO $ infol rc $ "GET /rd/ api ok for " <> showt baseFilename
+  liftIO $ infol rc $ "GET /rd/ api ok for " <> T.pack baseFilename
   fileExist <- liftIO $ doesFileExist targetFilename
   when (fileExist && not (forceOverwrite opts)) $ do
-    liftIO $ warnl rc $ "Warning: skip already existing file " <> showt targetFilename <> ", use -f to force overwrite"
+    liftIO $ warnl rc $ "Warning: skip already existing file " <> T.pack targetFilename <> ", use -f to force overwrite"
     mzero
   liftIO $ do
     infol rc $ "Downloading file: " <> respPath rdResp <> ", "
@@ -291,9 +291,9 @@ cliApp opts = do
   let dir = tempDir opts
   catchIOError (createDirectoryIfMissing True dir)
                (\e -> do
-                  errorl rc $ "Create temp dir " <> showt dir <> " failed: " <> showt e
+                  errorl rc $ "Create temp dir " <> T.pack dir <> " failed: " <> showt e
                   exitFailure)
-  debugl rc $ "using temp dir: " <> showt dir
+  debugl rc $ "using temp dir: " <> T.pack dir
   _progressTid <- forkIO $ showProgressLoop rc 0
   -- resultsMaybe :: [Maybe Bool]
   resultsMaybe <- mapM (runMaybeT . downloadFile rc) (urls opts)

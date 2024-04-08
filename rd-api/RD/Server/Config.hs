@@ -10,6 +10,7 @@ import Control.Monad.IO.Class
 import qualified System.Logger as L
 
 import RD.Types
+import RD.Utils
 
 -- | rd-api configuration, supports cli arguments or env variable.
 data RDConfig = RDConfig {
@@ -83,7 +84,7 @@ defaultRDRuntimeConfig config = do
 
 -- | the redis hash key used to store cached sha1sum for given FillBlockParam
 blockSha1sumHashKey :: FillBlockParam -> B.ByteString
-blockSha1sumHashKey fbp = Char8.pack (fbpFilepath fbp) <> "_" <> (Char8.pack . show) (fbpBlockSize fbp)
+blockSha1sumHashKey fbp = encodeUtf8 $ T.pack (fbpFilepath fbp) <> "_" <> showt (fbpBlockSize fbp)
 
 -- | the redis hash key sub key, used to store the sha1sum for that blockId.
 blockIdKey :: BlockID -> B.ByteString

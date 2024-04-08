@@ -45,7 +45,7 @@ fileWorker rc = forever $ do
   let filepath = fbpFilepath fbp
       conn = rcRedisConn rc
   -- calculate sha1sum for each block and write result to redis hash
-  infol rc $ "fileWorker working on " <> showt filepath
+  infol rc $ "fileWorker working on " <> T.pack filepath
   results <- withBinaryFile filepath ReadMode $ \handle -> do
     let hashKey = blockSha1sumHashKey fbp
     mapM (calculateSha1ForBlock conn hashKey handle) (fbpBlocks fbp)
@@ -55,10 +55,10 @@ fileWorker rc = forever $ do
     Left reply ->
       errorl rc $ "Set file status failed: " <> showt reply
     Right _ -> do
-      debugl rc $ "Set file status to " <> showt resultStatus <> " for " <> showt filepath
+      debugl rc $ "Set file status to " <> showt resultStatus <> " for " <> T.pack filepath
       infol rc $ sformat
-        ("fileWorker done for " % string % ", " % stext % ", " % int % " blocks")
-        filepath (humanReadableSize (fbpFileSize fbp)) (length (fbpBlocks fbp))
+        ("fileWorker done for " % stext % ", " % stext % ", " % int % " blocks")
+        (T.pack filepath) (humanReadableSize (fbpFileSize fbp)) (length (fbpBlocks fbp))
   return ()
     where
       -- | calculate sha1 for a single block. return IO True on success.
@@ -67,7 +67,7 @@ fileWorker rc = forever $ do
         redisReply <- R.runRedis conn $ R.hget hashKey (blockIdKey blockId)
         case redisReply of
           Left reply -> do
-            errorl rc $ "redis hget failed on " <> showt hashKey <> ": " <> showt reply
+            errorl rc $ "redis hget failed on " <> decodeUtf8 hashKey <> ": " <> showt reply
             return False
           Right sha1sumMaybe ->
             case sha1sumMaybe of
@@ -80,12 +80,12 @@ fileWorker rc = forever $ do
                 redisReply2 <- R.runRedis conn $ R.hset hashKey (blockIdKey blockId) blockSha1
                 case redisReply2 of
                   Left reply -> do
-                    errorl rc $ "redis hset failed on " <> showt hashKey <> ": " <> showt reply
+                    errorl rc $ "redis hset failed on " <> decodeUtf8 hashKey <> ": " <> showt reply
                     return False
                   Right n ->
                     if n > 0 then
                       do
-                        debugl rc $ "redis hset " <> showt hashKey <> " " <> showt blockId <> " ok"
+                        debugl rc $ "redis hset " <> decodeUtf8 hashKey <> " " <> showt blockId <> " ok"
                         return True
                      else
                         return False
