@@ -48,7 +48,7 @@ Usage: rd-api [-h|--host HOST] [-p|--port PORT] [--redis-host REDIS_HOST]
           $ ls
           bigfile1 bigfile2
           $ rd-api --host 0.0.0.0 --port 8082
-  
+
       client side:
           $ rd http://server-ip:8082/bigfile1
   

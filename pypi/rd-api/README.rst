@@ -31,8 +31,8 @@ To install this package:
 
 .. code-block:: bash
 
-   $ sudo apt install -y redis-server   # redis is used to cache block sha1sum
-   $ pip install --user rd-api
+   $ sudo apt install -y redis-server pipx   # redis is used to cache block sha1sum
+   $ pipx install rd-api
    $ rd-api --help
    $ ~/.local/bin/rd-api --help     # if ~/.local/bin/ is not in PATH
 
@@ -81,6 +81,10 @@ https://gitlab.emacsos.com/sylecn/reliable-download
 
 ChangeLog
 ---------
+
+* v1.5.0.0 2024-04-08
+  - bugfix: properly handle unicode string in URL path
+  - bugfix: use local time in log messages instead of UTC time
 
 * v1.4.0.0 2023-10-18
 
