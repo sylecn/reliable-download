@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2024-04-07>
+Time-stamp: <2024-04-08>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2022-03-14 project dir structure
@@ -331,31 +331,22 @@ https://artyom.me/aeson
 ** 2018-05-06 optparse-applicative :: Stackage Server
 https://www.stackage.org/lts-10.3/package/optparse-applicative-0.14.0.0
 * later                                                               :entry:
-** 2022-03-14 can I make tinylog log timestamp use localtime?
-- L.DateFormat
-  doesn't allow IO.
+** 2024-04-07 rd-api, rd: switch to fast-logger, use local datetime in logs, not UTC time.
+- tinylog is not maintained any more. no longer in latest stackage LTS.
+- tinylog types doesn't allow use local time in logs. requires writing lots of code.
+- create a demo project for using RIO and fast-logger.
+  cd ~/projects/
+  stack new rio-fastlogger-demo rio
 
-  I can't use formatUnixTime from
-  import Data.UnixTime (formatUnixTime)
-  in logSettings.
+  app/Main.hs
+  withLogFunc lo
 
-  formatUnixTime needs to read TZ from env variable.
-  well, I can read that before init the logger.
+  https://www.stackage.org/haddock/lts-22.15/rio-0.1.22.0/RIO.html#v:withLogFunc
 
-  formatUnixTime :: Format -> UnixTime -> IO ByteStringSource#
+  RIO has built-in log ts support.
 
-  Formatting UnixTime to ByteString in local time. This is a wrapper for
-  strftime_l().
-
-- how to create the DateFormat myself?
-  formatUnixTime use C FFI.
-
-  foreign import ccall unsafe "c_format_unix_time"
-        c_format_unix_time :: CString -> CTime -> CString -> CInt -> IO CSize
-
-- I can't do it myself. based on the code of tinylog.
-  I can probably make it work with fast-logger.
-  until next time.
+  RIO timestamp and level output is not pretty and not easily customizable.
+  maybe later.
 
 ** 2022-03-12 drop redis-server as rd-api dependency.
 - use a built-in key-value db. such as Berkeley db, sqlite3, or leveldb.
@@ -554,155 +545,22 @@ only first character is in path key.
 
 * current                                                             :entry:
 ** 
-** 2024-04-06 rd client: log should use local datetime not UTC time.
-https://hackage.haskell.org/package/tinylog-0.15.0/docs/src/System.Logger.Settings.html#iso8601UTC
+** 2024-04-07 when combining blocks to create final file, don't print
+"No block fetched in last 10 seconds" log any more if there is no other files
+in DL list.
+** 2024-04-07 rd-api: when a file content is changed on disk, auto invalidate all
+cached blocks.
 
-newtype DateFormat = DateFormat
-    { display :: UnixTime -> ByteString
-    }
+- when user request rd metadata, and file's mtime changed, do a sha1sum on
+  first 4M and last 4M of the file. if any of these sha1sum changes,
+  invalidate cache in redis.
 
-instance IsString DateFormat where
-    fromString = DateFormat . formatUnixTimeGMT . pack
-
--- | ISO 8601 date-time format.
-iso8601UTC :: DateFormat
-iso8601UTC = "%Y-%0m-%0dT%0H:%0M:%0SZ"
-
-UnixTime
-https://hackage.haskell.org/package/unix-time-0.4.5/docs/Data-UnixTime.html#t:UnixTime
-
-setFormat :: Maybe DateFormat -> Settings -> Settings
-
-- formatUnixTime :: Format -> UnixTime -> IO ByteString 
-  formatUnixTimeGMT :: Format -> UnixTime -> ByteString
-
-  type doesn't match. to get local time, it needs to read TZ info from env.
-
-  display :: UnixTime -> ByteString
-  I won't fit. it's a pure function. you can't read TZ info.
-
-- I need to patch tinylog setFormat or related caller.
-
-  or just switch to another log framework that is more flexible.
-
-  search: haskell tinylog datetime doesn't support local timezone
-
-  does RIO has native logging support? if so, I can switch to it.
-
-  fast-logger is popular. just switch to it.
-
-  which logger does rd-api use?
-
-  infol rc $ sformat ("rd-api " % string) cliVersion
-  errorl rc0 $ sformat
-  warnl rc0 $ sformat
-
-- problems
-  - make it build on agem10.
-    stack build fail with clang. which is installed on agem10.
-    usually I use gcc.
-    search: haskell stack ld.gold -fPIC
-
-    Now that Stackage supports GHC 9.2, is it easy to build ARM executables on macOS? : r/haskell
-    https://www.reddit.com/r/haskell/comments/tqzxy1/now_that_stackage_supports_ghc_92_is_it_easy_to/
-
-    #+begin_quote
-    $ cabal v2-build --ghc-options '-fllvm'
-    $ stack build --ghc-options '-fllvm'
-    $ ghc -0 main -fllvm main.hs
-    #+end_quote
-    stack build --ghc-options '-fllvm'
-    still fail.
-
-    try a newer lts.
-    lts-20.26
-
-    tinylog is no longer in this lts. why? build fail?
-    add it to extra-deps.
-    now fail with same error as lts-18.27.
-
-    #+begin_quote
-    /usr/bin/ld.gold: error: /home/sylecn/.stack/programs/x86_64-linux/ghc-tinfo6-9.2.8/lib/ghc-9.2.8/rts/libCffi.a(unix64.o): requires dynamic R_X86_64_PC32 reloc against 'abort' which may overflow at runtime; recompile with -fPIC
-    #+end_quote
-
-    #+begin_quote
-    requires unsupported dynamic reloc 11; recompile with -fPIC
-    #+end_quote
-    search: stack build error requires unsupported dynamic reloc 11; recompile with -fPIC
-
-    search: ghc-tinfo6 requires dynamic R_X86_64_PC32 reloc against 'abort' which may overflow at runtime; recompile with -fPIC
-
-  - search: can I add -fPIC in ghc-options
-
-    HaskellR - Programming R in Haskell
-    https://tweag.github.io/HaskellR/docs/faq.html
-
-    Link errors on Fedora 23 · Issue #257 · tweag/HaskellR · GitHub
-    https://github.com/tweag/HaskellR/issues/257
-
-    this is from 2016.
-
-  - try use ld bfd instead of ld gold. install gcc.
-    stack build still use ld.gold.
-
-  - I think it's clang issue.
-
-    stack build -v > t1.log 2>&1
-    less t1.log
-
-    remove clang
-    stack build -v > t2.log 2>&1
-
-    ghc: could not execute: clang
-    rm -rf ~/.stack/programs/x86_64-linux/ghc-tinfo6-8.10.7  ~/.stack/programs/x86_64-linux/ghc-tinfo6-9.2.8/ ~/.stack/programs/x86_64-linux/*.installed
-
-    is debian clang version too old? why clang fail?
-    debian clang 14.0
-    https://releases.llvm.org/download.html
-    latest is 17.0.1
-
-    after remove clang and remove installed ghc, now build can continue. no
-    -fPIC error.
-
-  - build still fail using gcc.
-    #+begin_src sh
-      basement             > [77 of 84] Compiling Basement.Imports
-      basement             > [78 of 84] Compiling Basement.Environment
-      basement             > [79 of 84] Compiling Basement.Alg.String
-      basement             > [80 of 84] Compiling Basement.String
-      basement             > [81 of 84] Compiling Basement.Terminal.ANSI
-      basement             > [82 of 84] Compiling Basement.From
-      basement             > [83 of 84] Compiling Basement.Block.Builder
-      basement             > [84 of 84] Compiling Basement.String.Builder
-      basement             > copy/register
-      basement             > Installing library in /home/sylecn/.stack/snapshots/x86_64-linux-tinfo6/825ee73e95cffd5da2814fedfcf130f346ff6d98f03df43cf1ee3e812806e28b/8.10.7/lib/x86_64-linux-ghc-8.10.7/basement-0.0.12-CTZ777ail2hHOrDOpE5nxE
-      basement             > Registering library for basement-0.0.12..
-      Progress 32/127          
-
-      Error: [S-7282]
-	     Stack failed to execute the build plan.
-       
-	     While executing the build plan, Stack encountered the error:
-       
-	     [S-7011]
-	     While building package double-conversion-2.0.2.0 (scroll up to its section to see the error) using:
-	     /home/sylecn/.stack/setup-exe-cache/x86_64-linux-tinfo6/Cabal-simple_6HauvNHV_3.2.1.0_ghc-8.10.7 --verbose=1 --builddir=.stack-work/dist/x86_64-linux-tinfo6/ghc-8.10.7 build --ghc-options " -fdiagnostics-color=always"
-	     Process exited with code: ExitFailure 1 
-      sylecn@agem10:~/projects/reliable-download$ 
-    #+end_src
-
-  - double-conversion    > gcc: fatal error: cannot execute ‘cc1plus’: execvp: No such file or directory
-    setup g++
-
-    yes. it works.
-    so stack ghc only builds with gcc and g++. not clang. at least not clang 14.
-
-    linux · Wiki · Glasgow Haskell Compiler / GHC · GitLab
-    https://gitlab.haskell.org/ghc/ghc/-/wikis/building/preparation/linux
-    tools · Wiki · Glasgow Haskell Compiler / GHC · GitLab
-    https://gitlab.haskell.org/ghc/ghc/-/wikis/building/preparation/tools
-
-    build GHC requires gcc and g++.
+  when calculate metadata, cache file's mtime, first 4M and last 4M of the
+  file's content's sha1sum.
+- this will allow DL the correct file when file content for the same file name
+  is changed.
+- give some log in console when file content changes.
+- 
 
 ** 2024-04-06 rd client: when server side doesn't support GET /rd/ api.
 give a more clear msg to client side.
@@ -2132,6 +1990,233 @@ I can use haskell fork though.
 yes. see Route Patterns.
 
 * wontfix                                                             :entry:
+** 2022-03-14 can I make tinylog log timestamp use localtime?
+- L.DateFormat
+  doesn't allow IO.
+
+  I can't use formatUnixTime from
+  import Data.UnixTime (formatUnixTime)
+  in logSettings.
+
+  formatUnixTime needs to read TZ from env variable.
+  well, I can read that before init the logger.
+
+  formatUnixTime :: Format -> UnixTime -> IO ByteStringSource#
+
+  Formatting UnixTime to ByteString in local time. This is a wrapper for
+  strftime_l().
+
+- how to create the DateFormat myself?
+  formatUnixTime use C FFI.
+
+  foreign import ccall unsafe "c_format_unix_time"
+        c_format_unix_time :: CString -> CTime -> CString -> CInt -> IO CSize
+
+- I can't do it myself. based on the code of tinylog.
+  I can probably make it work with fast-logger.
+  until next time.
+
+** 2024-04-06 rd client: log should use local datetime not UTC time.
+https://hackage.haskell.org/package/tinylog-0.15.0/docs/src/System.Logger.Settings.html#iso8601UTC
+
+newtype DateFormat = DateFormat
+    { display :: UnixTime -> ByteString
+    }
+
+instance IsString DateFormat where
+    fromString = DateFormat . formatUnixTimeGMT . pack
+
+-- | ISO 8601 date-time format.
+iso8601UTC :: DateFormat
+iso8601UTC = "%Y-%0m-%0dT%0H:%0M:%0SZ"
+
+UnixTime
+https://hackage.haskell.org/package/unix-time-0.4.5/docs/Data-UnixTime.html#t:UnixTime
+
+setFormat :: Maybe DateFormat -> Settings -> Settings
+
+- formatUnixTime :: Format -> UnixTime -> IO ByteString 
+  formatUnixTimeGMT :: Format -> UnixTime -> ByteString
+
+  type doesn't match. to get local time, it needs to read TZ info from env.
+
+  display :: UnixTime -> ByteString
+  I won't fit. it's a pure function. you can't read TZ info.
+
+- I need to patch tinylog setFormat or related caller.
+
+  or just switch to another log framework that is more flexible.
+
+  search: haskell tinylog datetime doesn't support local timezone
+
+  does RIO has native logging support? if so, I can switch to it.
+
+  fast-logger is popular. just switch to it.
+
+  which logger does rd-api use?
+
+  infol rc $ sformat ("rd-api " % string) cliVersion
+  errorl rc0 $ sformat
+  warnl rc0 $ sformat
+
+  ./rd-api/RD/Server/Config.hs
+  import qualified System.Logger as L
+  rcLogger :: L.Logger
+  rd-api is using tinylog.
+  tinylog is a trivial logger on top of fast-logger.
+
+  since it's no longer maintained, just switch to fast-logger.
+
+- problems
+  - make it build on agem10.
+    stack build fail with clang. which is installed on agem10.
+    usually I use gcc.
+    search: haskell stack ld.gold -fPIC
+
+    Now that Stackage supports GHC 9.2, is it easy to build ARM executables on macOS? : r/haskell
+    https://www.reddit.com/r/haskell/comments/tqzxy1/now_that_stackage_supports_ghc_92_is_it_easy_to/
+
+    #+begin_quote
+    $ cabal v2-build --ghc-options '-fllvm'
+    $ stack build --ghc-options '-fllvm'
+    $ ghc -0 main -fllvm main.hs
+    #+end_quote
+    stack build --ghc-options '-fllvm'
+    still fail.
+
+    try a newer lts.
+    lts-20.26
+
+    tinylog is no longer in this lts. why? build fail?
+    add it to extra-deps.
+    now fail with same error as lts-18.27.
+
+    #+begin_quote
+    /usr/bin/ld.gold: error: /home/sylecn/.stack/programs/x86_64-linux/ghc-tinfo6-9.2.8/lib/ghc-9.2.8/rts/libCffi.a(unix64.o): requires dynamic R_X86_64_PC32 reloc against 'abort' which may overflow at runtime; recompile with -fPIC
+    #+end_quote
+
+    #+begin_quote
+    requires unsupported dynamic reloc 11; recompile with -fPIC
+    #+end_quote
+    search: stack build error requires unsupported dynamic reloc 11; recompile with -fPIC
+
+    search: ghc-tinfo6 requires dynamic R_X86_64_PC32 reloc against 'abort' which may overflow at runtime; recompile with -fPIC
+
+  - search: can I add -fPIC in ghc-options
+
+    HaskellR - Programming R in Haskell
+    https://tweag.github.io/HaskellR/docs/faq.html
+
+    Link errors on Fedora 23 · Issue #257 · tweag/HaskellR · GitHub
+    https://github.com/tweag/HaskellR/issues/257
+
+    this is from 2016.
+
+  - try use ld bfd instead of ld gold. install gcc.
+    stack build still use ld.gold.
+
+  - I think it's clang issue.
+
+    stack build -v > t1.log 2>&1
+    less t1.log
+
+    remove clang
+    stack build -v > t2.log 2>&1
+
+    ghc: could not execute: clang
+    rm -rf ~/.stack/programs/x86_64-linux/ghc-tinfo6-8.10.7  ~/.stack/programs/x86_64-linux/ghc-tinfo6-9.2.8/ ~/.stack/programs/x86_64-linux/*.installed
+
+    is debian clang version too old? why clang fail?
+    debian clang 14.0
+    https://releases.llvm.org/download.html
+    latest is 17.0.1
+
+    after remove clang and remove installed ghc, now build can continue. no
+    -fPIC error.
+
+  - build still fail using gcc.
+    #+begin_src sh
+      basement             > [77 of 84] Compiling Basement.Imports
+      basement             > [78 of 84] Compiling Basement.Environment
+      basement             > [79 of 84] Compiling Basement.Alg.String
+      basement             > [80 of 84] Compiling Basement.String
+      basement             > [81 of 84] Compiling Basement.Terminal.ANSI
+      basement             > [82 of 84] Compiling Basement.From
+      basement             > [83 of 84] Compiling Basement.Block.Builder
+      basement             > [84 of 84] Compiling Basement.String.Builder
+      basement             > copy/register
+      basement             > Installing library in /home/sylecn/.stack/snapshots/x86_64-linux-tinfo6/825ee73e95cffd5da2814fedfcf130f346ff6d98f03df43cf1ee3e812806e28b/8.10.7/lib/x86_64-linux-ghc-8.10.7/basement-0.0.12-CTZ777ail2hHOrDOpE5nxE
+      basement             > Registering library for basement-0.0.12..
+      Progress 32/127          
+
+      Error: [S-7282]
+	     Stack failed to execute the build plan.
+       
+	     While executing the build plan, Stack encountered the error:
+       
+	     [S-7011]
+	     While building package double-conversion-2.0.2.0 (scroll up to its section to see the error) using:
+	     /home/sylecn/.stack/setup-exe-cache/x86_64-linux-tinfo6/Cabal-simple_6HauvNHV_3.2.1.0_ghc-8.10.7 --verbose=1 --builddir=.stack-work/dist/x86_64-linux-tinfo6/ghc-8.10.7 build --ghc-options " -fdiagnostics-color=always"
+	     Process exited with code: ExitFailure 1 
+      sylecn@agem10:~/projects/reliable-download$ 
+    #+end_src
+
+  - double-conversion    > gcc: fatal error: cannot execute ‘cc1plus’: execvp: No such file or directory
+    setup g++
+
+    yes. it works.
+    so stack ghc only builds with gcc and g++. not clang. at least not clang 14.
+
+    linux · Wiki · Glasgow Haskell Compiler / GHC · GitLab
+    https://gitlab.haskell.org/ghc/ghc/-/wikis/building/preparation/linux
+    tools · Wiki · Glasgow Haskell Compiler / GHC · GitLab
+    https://gitlab.haskell.org/ghc/ghc/-/wikis/building/preparation/tools
+
+    build GHC requires gcc and g++.
+
+  - stack install hindent hasktags stylish-haskell
+
+    stack build output is difficult to read when build fails.
+    the real error is not at the bottom.
+
+    #+begin_src sh
+      ghc-lib-parser-ex            > [16 of 21] Compiling Language.Haskell.GhclibParserEx.Config
+      ghc-lib-parser-ex            > [17 of 21] Compiling Language.Haskell.GhclibParserEx.GHC.Types.Name.Reader
+      ghc-lib-parser-ex            > [18 of 21] Compiling Language.Haskell.GhclibParserEx.GHC.Utils.Outputable
+      ghc-lib-parser-ex            > [19 of 21] Compiling Language.Haskell.GhclibParserEx.Outputable
+      ghc-lib-parser-ex            > [20 of 21] Compiling Language.Haskell.GhclibParserEx.Parse
+      ghc-lib-parser-ex            > [21 of 21] Compiling Paths_ghc_lib_parser_ex
+      ghc-lib-parser-ex            > /usr/bin/ld.gold: error: cannot find -ltinfo
+      ghc-lib-parser-ex            > collect2: error: ld returned 1 exit status
+      ghc-lib-parser-ex            > `gcc' failed in phase `Linker'. (Exit code: 1)
+    #+end_src
+    does gcc use ld.gold?
+
+    gold (linker) - Wikipedia
+    https://en.wikipedia.org/wiki/Gold_(linker)
+
+    gold is best used with LLVM. not gcc.
+    it was developed by google.
+
+    libncurses-dev - developer's libraries for ncurses
+    libtinfo-dev - transitional package for libncurses-dev
+    libtinfo5 - shared low-level terminfo library (legacy version)
+    libtinfo6 - shared low-level terminfo library for terminal handling
+
+    setup libncurses-dev
+    try again.
+
+    it works.
+    #+begin_quote
+    Copied executables to /home/sylecn/.local/bin/:
+    * hasktags
+    * hindent
+    * stylish-haskell
+    #+end_quote
+
+  - the haskell stack build output is interleaved for different packages.
+    does the latest stack fix this?
+
 ** 2018-05-08 optparse-applicative can easily support parsing env variables.
 <> long "host"
 <> envvar "HOST"
