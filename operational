@@ -480,19 +480,6 @@ via env var and command line parameter.
 
 * current                                                             :entry:
 ** 
-** 2024-04-08 should I use absolute file path in redis key?
-this can reduce some sha1 calculation if user run rd-api in different root dir.
-
-e.g.
-
-cd /foo/bar/
-rd-api
-
-cd /foo/
-rd-api -d bar
-# or
-rd-api -d /foo/bar
-
 ** 2024-04-07 when combining blocks to create final file, don't print
 "No block fetched in last 10 seconds" log any more if there is no other files
 in DL list.
@@ -527,14 +514,6 @@ IO () -> IO ()
 
 I should not need to write showProgressLoop explicitly.
 
-** 2019-02-28 bug: rd-api -d java/
-option -d: cannot parse value `java/'
-
-- stack exec rd-api -- -d t1/
-  this works fine.
-
-  probably a python wrapper issue.
-
 ** 2018-05-09 test the app under unstable network.
 I remember there are tools that can simulate packet loss.
 policy in ovs can do it.
@@ -546,6 +525,88 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2019-02-28 bug: rd-api -d java/
+option -d: cannot parse value `java/'
+
+- stack exec rd-api -- -d t1/
+  this works fine.
+
+  probably a python wrapper issue.
+
+- problems
+  - 2024-04-08 -d foo/ works fine.
+    -d foo, -d ./foo/ also works.
+  - but getFileStatus on ./test/中文.txt failed:
+    ./test/中文.txt: getFileStatus: does not exist (No such file or directory)
+
+    on s02,
+    cd ~/projects/reliable-download
+    rd-api -d ./test/
+
+    on agem10,
+    rd http://[240e:388:8a05:500:be24:11ff:fe06:be5f]:8082/中文.txt
+  - try it on agem10,
+
+    rd http://127.0.0.1:8082/中文.txt
+    also fail.
+
+    file name encoding issue?
+
+    import System.FilePath ((</>))
+
+    let filepath = webRoot (rcConfig rc) </> T.unpack reqFilePath
+    getFileStatus filepath
+
+    I see no encoding issue.
+    try add some log.
+    no issue.
+    getFileStatus works in ghci.
+
+    stack ghci reliable-download:exe:rd-api
+    #+begin_src sh
+      ghci> import System.Posix.Files (getFileStatus, fileSize)
+      ghci> s1 <- getFileStatus("./test/TestApi.hs")
+      ghci> fileSize s1
+      7647
+      ghci> s2 <- getFileStatus("./test/中文.txt")
+      ghci> fileSize s2
+      8
+      ghci> :q
+      Leaving GHCi.
+    #+end_src
+    so why did it fail?
+    maybe it only fails when run via python?
+    LANG/locale issue?
+
+    try run via stack or just binary.
+    ~/.local/pipx/venvs/rd-api/lib/python3.11/site-packages/rdapi/rd-api
+    it also fail. not python wrapper issue.
+
+  - use abs path in -d works.
+    it's relative path and CWD issue.
+    maybe I changed CWD somewhere. check it.
+
+    git grep setCurrentDirectory
+
+    yes.
+    -- static app only support serving from PWD
+    setCurrentDirectory (webRoot config)
+
+    so just always use relative path, don't join with webroot dir.
+
+** 2024-04-08 should I use absolute file path in redis key?
+this can reduce some sha1 calculation if user run rd-api in different root dir.
+
+e.g.
+
+cd /foo/bar/
+rd-api
+
+cd /foo/
+rd-api -d bar
+# or
+rd-api -d /foo/bar
+
 ** 2024-04-07 rd-api, rd: switch to fast-logger, use local datetime in logs, not UTC time. :logging:featurereq:
 - tinylog is not maintained any more. no longer in latest stackage LTS.
 - tinylog types doesn't allow use local time in logs. requires writing lots of code.

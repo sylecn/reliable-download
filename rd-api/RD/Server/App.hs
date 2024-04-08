@@ -13,6 +13,7 @@ import Network.Wai (Application, pathInfo)
 import Web.Scotty
 import Data.Aeson (object, (.=))
 import System.FilePath ((</>))
+import System.Directory (makeAbsolute)
 import System.Posix.Files (getFileStatus, fileSize)
 import Control.Error
 import qualified Database.Redis as R
@@ -79,14 +80,15 @@ getRdHandler rc = do
   unless (rcHasRedis rc) $
       throwE "No redis on server side, rd client support is disabled"
   req <- lift request
-  let reqFilePath = T.intercalate "/" $ drop 1 $ pathInfo req
-  let filepath = webRoot (rcConfig rc) </> T.unpack reqFilePath
+  let relFilePath = T.intercalate "/" $ drop 1 $ pathInfo req
+      filepath = webRoot (rcConfig rc) </> T.unpack relFilePath
+  absFilePath <- liftIO $ makeAbsolute $ T.unpack relFilePath
   fileStatusE <- lift $ do
-    liftIO $ infol rc $ "user request rd metadata for " <> T.pack filepath
+    liftIO $ infol rc $ "user request rd metadata for " <> relFilePath
     liftIO $ catchIOError
-      (fmap Right (getFileStatus filepath))
+      (fmap Right (getFileStatus $ T.unpack relFilePath))
       (\e -> do
-         let msg = "getFileStatus on " <> T.pack filepath <> " failed"
+         let msg = "getFileStatus on " <> relFilePath <> " failed"
          errorl rc $ msg <> ":\n\t" <> T.pack (show e)
          return $ Left msg)
   throwOnLeft fileStatusE
@@ -97,7 +99,7 @@ getRdHandler rc = do
         blockSizeInByte = 2097152    -- 2MiB
         blockCount = (fileSizeInByte - 1) `div` blockSizeInByte + 1
         blocks = genBlocks fileSizeInByte blockSizeInByte
-        fbp = FillBlockParam { fbpFilepath=filepath
+        fbp = FillBlockParam { fbpFilepath=absFilePath
                              , fbpFileSize=fileSizeInByte
                              , fbpBlockSize=blockSizeInByte
                              , fbpBlocks=blocks }
@@ -105,14 +107,14 @@ getRdHandler rc = do
     case resultE of
       Left msg -> json $
           object ["ok" .= False
-                 ,"path" .= reqFilePath
+                 ,"path" .= relFilePath
                  ,"filepath" .= filepath
                  ,"msg" .= msg]
       Right _ -> do
           blocksWithSha1sum <- liftIO $ fillSha1sum rc fbp
           json RDResponse { respOk=True
                           , respMsg=""
-                          , respPath=reqFilePath
+                          , respPath=relFilePath
                           , respFilePath=filepath
                           , respBlockSize="2MiB"
                           , respFileSize=fileSizeInByte
@@ -136,12 +138,12 @@ mkApp rc = do
   get (regex "^/test-rd/") $ do    -- for testing path capture
     req <- request
     let fullPath = "/" <> T.intercalate "/" (pathInfo req)
-        reqFilePath = T.intercalate "/" $ drop 1 $ pathInfo req
-    let filepath = webRoot (rcConfig rc) </> T.unpack reqFilePath
+        relFilePath = T.intercalate "/" $ drop 1 $ pathInfo req
+    let filepath = webRoot (rcConfig rc) </> T.unpack relFilePath
     json $ object ["ok" .= True
-                  ,"path" .= reqFilePath
-                  ,"filepath" .= filepath
-                  ,"fullPath" .= fullPath]
+                  ,"path" .= relFilePath -- file path in URL
+                  ,"filepath" .= filepath -- file path on server side
+                  ,"fullPath" .= fullPath] -- HTTP request path
 
   get "/debug/t1" $ do
     sha1 <- liftIO $ sha1sum "/home/sylecn/persist/cache/ideaIC-2018.1.tar.gz"
