@@ -492,6 +492,51 @@ via env var and command line parameter.
 
 * current                                                             :entry:
 ** 
+** 2024-04-07 when combining blocks to create final file, don't print
+"No block fetched in last 10 seconds" log any more if there is no other files
+in DL list.
+** 2024-04-07 rd-api: when a file content is changed on disk, auto invalidate all
+cached blocks.
+
+- when user request rd metadata, and file's mtime changed, do a sha1sum on
+  first 4M and last 4M of the file. if any of these sha1sum changes,
+  invalidate cache in redis.
+
+  when calculate metadata, cache file's mtime, first 4M and last 4M of the
+  file's content's sha1sum.
+- this will allow DL the correct file when file content for the same file name
+  is changed.
+- give some log in console when file content changes.
+- 
+
+** 2024-03-12 rd-api, if file is already transferred block by block, I can support
+live compress easily. If the client request compress as param such as
+?compress=zstd. default is no compress.
+
+- when the source file is just tar, not compressed format like squashfs or
+  zip, this can speed up transfer by delaying compress.
+
+** 2024-03-12 rd, add an DL remaining time estimate, based on estimated DL speed.
+each block has a block size. I know when it is started and when it is
+finished. I know how many more blocks to fetch. it should be easy to
+estimate. calculate a moving avg speed using the last 5 blocks DLed.
+
+** 2022-03-15 rd client, is there a built-in repeat/loop function?
+IO () -> IO ()
+
+I should not need to write showProgressLoop explicitly.
+
+** 2018-05-09 test the app under unstable network.
+I remember there are tools that can simulate packet loss.
+policy in ovs can do it.
+
+- 2018-05-11 tcp - Simulate delayed and dropped packets on Linux - Stack Overflow
+  https://stackoverflow.com/questions/614795/simulate-delayed-and-dropped-packets-on-linux
+
+  test this in vbox VM. stretch01
+  see stretch01 daylog.
+
+* done                                                                :entry:
 ** 2024-04-24 try build this project in gocd.
 - build in debian stretch agent node.
 - build in docker is fine.
@@ -756,51 +801,28 @@ set.AGENT_STARTUP_ARGS=-Xms256m -Xmx1024m
     I see. in Makefile the path is not build/rd-api.
     it's ../../build/rd-api
 
-** 2024-04-07 when combining blocks to create final file, don't print
-"No block fetched in last 10 seconds" log any more if there is no other files
-in DL list.
-** 2024-04-07 rd-api: when a file content is changed on disk, auto invalidate all
-cached blocks.
+  - in setup.py python3-setuptools is required.
 
-- when user request rd metadata, and file's mtime changed, do a sha1sum on
-  first 4M and last 4M of the file. if any of these sha1sum changes,
-  invalidate cache in redis.
+    I think I should have a python3 build image and run the package commands
+    in that docker image instead of rebuilding go-agent image too frequently.
 
-  when calculate metadata, cache file's mtime, first 4M and last 4M of the
-  file's content's sha1sum.
-- this will allow DL the correct file when file content for the same file name
-  is changed.
-- give some log in console when file content changes.
-- 
+    use pre-built twine docker image maybe.
 
-** 2024-03-12 rd-api, if file is already transferred block by block, I can support
-live compress easily. If the client request compress as param such as
-?compress=zstd. default is no compress.
+    I really hate docker-in-docker though.
 
-- when the source file is just tar, not compressed format like squashfs or
-  zip, this can speed up transfer by delaying compress.
+    maybe just don't run go-agent in docker.
+    that will fix everything.
 
-** 2024-03-12 rd, add an DL remaining time estimate, based on estimated DL speed.
-each block has a block size. I know when it is started and when it is
-finished. I know how many more blocks to fetch. it should be easy to
-estimate. calculate a moving avg speed using the last 5 blocks DLed.
+    I can manage OS env using salt easily.
+    but I also don't want to install compilers in production system.
+    maybe run it in VMs?
 
-** 2022-03-15 rd client, is there a built-in repeat/loop function?
-IO () -> IO ()
+    recreate docker image is not slow when change is not big.
+    give it another try.
 
-I should not need to write showProgressLoop explicitly.
+    it works now.
+    on next release, I can use gocd to build and deploy to PyPI.
 
-** 2018-05-09 test the app under unstable network.
-I remember there are tools that can simulate packet loss.
-policy in ovs can do it.
-
-- 2018-05-11 tcp - Simulate delayed and dropped packets on Linux - Stack Overflow
-  https://stackoverflow.com/questions/614795/simulate-delayed-and-dropped-packets-on-linux
-
-  test this in vbox VM. stretch01
-  see stretch01 daylog.
-
-* done                                                                :entry:
 ** 2019-02-28 bug: rd-api -d java/
 option -d: cannot parse value `java/'
 
