@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2024-04-24>
+Time-stamp: <2024-04-25>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2022-03-14 project dir structure
@@ -16,9 +16,12 @@ Time-stamp: <2024-04-24>
 - update version number in
   - lib/RD/CliVersion.hs (required, used by pypi pkg)
   - package.yaml (optional)
-- build binary
+- build binary on an old OS, like debian stretch.
+  so the built binary can run everywhere.
+
   stack build --test --pedantic
   stack exec hlint -- -g
+
 - update README file. add ChangeLog entry on *README.rst
   ./README.md
   ./pypi/rd-api/README.rst
@@ -486,6 +489,108 @@ via env var and command line parameter.
 
 * current                                                             :entry:
 ** 
+** 2024-04-24 try build this project in gocd.
+- build in debian stretch agent node.
+- build in docker is fine.
+  cp the built binary to artifacts dir.
+  use debian stretch base debian image.
+
+  debian stretch is no longer supported. maybe try a supported old OS.
+  like debian 10 buster or RHEL 7?
+
+  Red Hat Universal Base Images for Docker users | Red Hat Developer
+  https://developers.redhat.com/blog/2020/03/24/red-hat-universal-base-images-for-docker-users#introducing_red_hat_universal_base_images
+
+  Life-cycle Dates
+  https://access.redhat.com/support/policy/updates/errata/#Life_Cycle_Dates
+  RHEL 7.9 is still supported, until June 30, 2024.
+
+  I think I should just use debian 10 buster as a base.
+- how to make build reuse as much cache as possible?
+  cache should be stored on host?
+
+  nix is indeed a good match for this scenario. too bad it can't use a
+  pre-built ghc.
+
+  run build on bare metal is best, everything can be debugged and purged as
+  will. it is not as reproducible though. To build on go-agent, I need to run
+  go-agent on stretch or buster VM. It is similar to manual build, just with
+  some automation and I can config it to always build on the same go-agent
+  node and it can store the built artifacts for me.
+
+  I think it's worth it. Just deploy go-agent on stretch02 VM.
+- deploy go-agent on stretch02 VM.
+  check how to specify which files should be copied to artifacts.
+
+  I need to run go-agent as sylecn user so I can reuse stack cache and
+  configuration. so I decide to use the zip file based agent.
+
+  Generic Zip | GoCD User Documentation
+  https://docs.gocd.org/current/installation/install/agent/zip.html
+
+  Download zip
+  https://www.gocd.org/download/#zip
+  DL to /wh01/share/soft/cache/go-agent-23.5.0-18179.zip
+  sha256
+  74cfe036906b5ca246541fa3fe9c20e0ca04f80b27b5f6d03350cfbc1a2b3890
+
+  create auto reg config file.
+  specify go-server URL.
+
+  ./config/autoregister.properties
+  #+begin_quote
+agent.auto.register.key=67c2fdfe-a9a3-490a-9c65-190fc2258483
+agent.auto.register.resources=inside-gfw,stack
+agent.auto.register.hostname=stretch02
+  #+end_quote
+
+  ./wrapper-config/wrapper-properties.conf
+  #+begin_quote
+wrapper.app.parameter.100=-serverUrl
+wrapper.app.parameter.101=https://go.emacsos.com/go
+# env variables
+set.AGENT_STARTUP_ARGS=-Xms256m -Xmx1024m
+  #+end_quote
+  install openjdk 17. use nix? no. just use amazon corretto deb.
+
+  ./bin/go-agent start
+
+  it works perfectly. agent is detected, resources is auto added.
+
+- now config pipeline for reliable-download.
+
+  allow go-server access my git repos.
+  using deploy read-only key.
+
+  what's the path of the built binary?
+  /home/sylecn/projects/reliable-download/.stack-work/install/x86_64-linux-tinfo6/21acf9206f416a1e336a58fea37773f98a7eb66bb7c93dff696534ca35928f26/9.2.8/bin/rd-api
+  /home/sylecn/projects/reliable-download/.stack-work/install/x86_64-linux-tinfo6/21acf9206f416a1e336a58fea37773f98a7eb66bb7c93dff696534ca35928f26/9.2.8/bin/rd
+  is this path stable? nope.
+  s02 path is different. it has no -tinfo and a different hash.
+  probably different stack version. yes. s02 stack 2.15.5, agem10 stack 2.13.1
+
+  after upgrading stack. path is still not modified.
+  well, I need to cp the files in gocd build stage. using scripts.
+
+  *now*
+
+- problems
+  - git clone hangs.
+    network issue?
+
+    https://gitlab.emacsos.com/sylecn/reliable-download
+    this URL clone okay.
+
+    git@gitlab.emacsos.com:sylecn/reliable-download.git
+    this URL clone fail.
+    why? probably ssh config issue.
+    is the home dir properly mount?
+
+    go-server uses jgit?
+    /wh01/share/apps/go-server/home/.config/jgit/config
+
+    search: gocd jgit how to set StrictHostKeyChecking=no
+
 ** 2024-04-07 when combining blocks to create final file, don't print
 "No block fetched in last 10 seconds" log any more if there is no other files
 in DL list.
