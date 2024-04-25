@@ -1,5 +1,6 @@
 VERSION := $(shell grep 'cliVersion =' ../../lib/RD/CliVersion.hs | cut -d'"' -f2)
 TWINE := python3 -m twine
+RD_API_ARTIFACT := ../../build/rd-api
 
 default:
 	@echo "usage: make [dist|install|upload]"
@@ -8,8 +9,8 @@ bootstrap:
 	@python3 -c 'import wheel' || python3 -m pip install --user wheel
 	@python3 -c 'import twine' || python3 -m pip install --user twine
 dist: bootstrap
-	if [ -f build/rd-api ]; then \
-		install build/rd-api rdapi/ ; \
+	if [ -f $(RD_API_ARTIFACT) ]; then \
+		install $(RD_API_ARTIFACT) rdapi/ ; \
 	else \
 		cp -u `stack path --local-install-root`/bin/rd-api rdapi/ ; \
 	fi

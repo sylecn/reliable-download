@@ -712,7 +712,49 @@ set.AGENT_STARTUP_ARGS=-Xms256m -Xmx1024m
 
     I will run readme_renderer on d12 bookworm go-agent nodes.
 
-  - 
+  - DONE release-rd-api
+    when I add two materials and trigger a run,
+    #+begin_quote
+    [go] Task: fetch artifact [build/rd-api] => [] from [reliable-download/testAndBuild/run-stack]
+    [go] Fetching artifact [build/rd-api] from [reliable-download/5/testAndBuild/latest/run-stack]
+    [go] Could not fetch artifact https://go.emacsos.com/go/remoting/files/reliable-download/5/testAndBuild/latest/run-stack/build/rd-api. Pausing 17 seconds to retry. Error was : Caught an exception 'pipelines/release-rd-api/rd-api: Is a directory'
+    [go] Could not fetch artifact https://go.emacsos.com/go/remoting/files/reliable-download/5/testAndBuild/latest/run-stack/build/rd-api. Pausing 27 seconds to retry. Error was : Caught an exception 'pipelines/release-rd-api/rd-api: Is a directory'
+    [go] Could not fetch artifact https://go.emacsos.com/go/remoting/files/reliable-download/5/testAndBuild/latest/run-stack/build/rd-api. Pausing 34 seconds to retry. Error was : Caught an exception 'pipelines/release-rd-api/rd-api: Is a directory'
+    #+end_quote
+    search: fetching artifact Caught an exception Is a directory
+
+    check artifact API.
+    https://go.emacsos.com/go/remoting/files/reliable-download/5/testAndBuild/latest/run-stack/build/rd-api
+
+    web UI click file link is
+    https://go.emacsos.com/go/files/reliable-download/5/testAndBuild/1/run-stack/build/rd-api
+    path looks alright to me.
+
+    is it source is file switch issue?
+    when using build/ and is a directory, it seems to work.
+    I just don't want to get both rd and rd-api when only one is needed.
+
+    // Oh, I see the problem.
+    I didn't set Destination. so it tries to copy ./build/rd-api to ./rd-api
+    but ./rd-api already exists as a directory. just set destination to
+    build/ should work.
+    // yes. it works.
+
+  - "make bootstrap" fail in release-rd-api pipeline.
+
+    python3 -c 'import wheel' || python3 -m pip install --user wheel
+    this step fail in docker image.
+
+    try it,
+    docker run -ti --rm pvereg.emacsos.com/sylecn/gocd-agent-debian-12-cn:v23.5.1 bash
+
+  - "make bootstrap" fail in s02 go-agent.
+    if [ -f build/rd-api ] returns false. why?
+
+    fetch artifact is okay.
+
+    I see. in Makefile the path is not build/rd-api.
+    it's ../../build/rd-api
 
 ** 2024-04-07 when combining blocks to create final file, don't print
 "No block fetched in last 10 seconds" log any more if there is no other files
