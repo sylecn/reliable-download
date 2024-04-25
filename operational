@@ -19,6 +19,9 @@ Time-stamp: <2024-04-25>
 - build binary on an old OS, like debian stretch.
   so the built binary can run everywhere.
 
+  install haskell stack tool.
+  setup libncurses-dev
+
   stack build --test --pedantic
   stack exec hlint -- -g
 
@@ -572,7 +575,37 @@ set.AGENT_STARTUP_ARGS=-Xms256m -Xmx1024m
   after upgrading stack. path is still not modified.
   well, I need to cp the files in gocd build stage. using scripts.
 
+- build and upload artifacts works.
+
+  add a new stage to create PyPI packages?
+  I also want to render README.rst file and generate html file.
+
+  readme-renderer · PyPI
+  https://pypi.org/project/readme-renderer/
+  requires py38+, stretch02 has py37.
+  it's a library used by twine check. but I need html. how?
+  search: how to render rst to html using readme-renderer
+
+  https://github.com/pypa/readme_renderer/blob/main/readme_renderer/__main__.py
+  here is a main. it is not exposed via pyproject.toml
+
+  I will run readme_renderer on d12 bookworm go-agent nodes.
+  preinstall it in the agent nodes?
+  it is in docker, I have to rebuild the docker image.
+
+  it's in d12 bookworm.
+  DONE require readme-renderer agent resource.
+  setup python3-readme-renderer
+  python3 -m readme_renderer --help
+  python3 -m readme_renderer -o README.html README.rst
+  it works.
+
+  created ./render-readme.sh to run in gocd.
+
   *now*
+
+- 3rd party storage (i.e. S3) is supported for artifacts.
+  https://go.emacsos.com/go/admin/artifact_stores
 
 - problems
   - git clone hangs.
@@ -590,6 +623,71 @@ set.AGENT_STARTUP_ARGS=-Xms256m -Xmx1024m
     /wh01/share/apps/go-server/home/.config/jgit/config
 
     search: gocd jgit how to set StrictHostKeyChecking=no
+
+  - stack cache broken?
+    #+begin_quote
+    Warning: Trouble loading CompilerPaths cache:
+
+         Error: [S-2673]
+         Global dump did not parse correctly.
+    #+end_quote
+    it tries to rebuild everything.
+
+    #+begin_quote
+    resource-pool                > Installing library in /home/sylecn/.stack/snapshots/x86_64-linux/77927a2d79232715851f143c4898fcc1c39e5573770dc4db45fc8afa42702d2e/9.2.8/lib/x86_64-linux-ghc-9.2.8/resource-pool-0.2.3.2-8RTY8siXmdJHwIRBi4f3K5
+    #+end_quote
+
+    search: haskell stack Warning: Trouble loading CompilerPaths cache Global dump did not parse correctly
+
+    as long as the cache works after initial build, it is fine.
+
+  - stack build fail on s02 VM.
+    While building package hspec-core-2.9.7
+
+    hspec-core                   > /usr/bin/ld.gold: error: cannot find -ltinfo
+
+    I have seen this before.
+    setup libncurses-dev
+    it works.
+
+    if using nix, I won't have this problem.
+
+  - build okay. but artifacts are not collected by gocd.
+
+    it is collected. just not shown in web UI.
+    I can see it on disk.
+    /wh01/share/apps/go-server/artifacts/pipelines/reliable-download/2/testAndBuild/1/run-stack
+
+    it's also shown in web UI.
+    in job details page.
+
+    artifacts are associated with each job run.
+    so there is no need to use sub folder.
+
+    why both build/reliable-download-1.5.0.1/ and reliable-download-1.5.0.1/
+    is included in artifacts? probably because "/**" can match empty string.
+
+  - can I delete old artifacts?
+
+    yes. it's a global thing. when disk space is low, old artifacts can be
+    deleted, unless it's marked as never delete.
+
+  - can I run readme_renderer via nix?
+    is it in nix? yes.
+    nix search nixpkgs readme-renderer$
+    nix profile install nixpkgs#python312 nixpkgs#python312Packages.readme-renderer nixpkgs#python312Packages.readme_renderer
+
+    python3.12 -m readme_renderer -- --help
+    nope. can't find the lib. wtf?
+
+    nix requires learning before I can use python packages.
+    search: nix how to use python packages from shell?
+
+    just don't use it for library and cli tools for now.
+
+    I will run readme_renderer on d12 bookworm go-agent nodes.
+
+  - 
 
 ** 2024-04-07 when combining blocks to create final file, don't print
 "No block fetched in last 10 seconds" log any more if there is no other files
