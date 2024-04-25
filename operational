@@ -602,7 +602,11 @@ set.AGENT_STARTUP_ARGS=-Xms256m -Xmx1024m
 
   created ./render-readme.sh to run in gocd.
 
-  *now*
+- how to pull binary from artifacts before running release-rd-api and
+  release-rd?
+
+  how to make release-rd-api and release-rd not depend on each other?
+  do I need to create more than one pipeline?
 
 - 3rd party storage (i.e. S3) is supported for artifacts.
   https://go.emacsos.com/go/admin/artifact_stores
