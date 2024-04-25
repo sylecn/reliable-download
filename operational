@@ -608,6 +608,27 @@ set.AGENT_STARTUP_ARGS=-Xms256m -Xmx1024m
   how to make release-rd-api and release-rd not depend on each other?
   do I need to create more than one pipeline?
 
+  read more about pipeline design.
+
+  Concepts in GoCD | GoCD User Documentation
+  https://docs.gocd.org/current/introduction/concepts_in_go.html
+
+  create two new downstream pipelines to do the release.
+
+  release-rd-api
+  release-rd
+
+  need to fix
+  ~/projects/reliable-download/pypi/rd-api/Makefile
+  ~/projects/reliable-download/pypi/rd-client/Makefile
+  to
+  support artifacts in build/
+  and
+  support debian bookworm and later.
+
+  well, I can just create package on debian stretch.
+  an older version of readme_renderer can work on older python.
+
 - 3rd party storage (i.e. S3) is supported for artifacts.
   https://go.emacsos.com/go/admin/artifact_stores
 
