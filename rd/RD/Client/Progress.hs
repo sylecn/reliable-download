@@ -82,22 +82,31 @@ showProgressAllDone rc = do
       ("All urls downloaded. " % int % " files, " % int % " blocks.")
       totalfilec totalblockc
 
--- | show progress if at least one new block is fetched since last time. Otherwise, give a hint there may be a DL hang.
+-- | show progress if at least one new block is fetched since last
+-- time. Otherwise, give a hint there may be a DL hang. when all blocks are
+-- fetched, return -1
 showProgressMaybe :: RDClientRuntimeConfig -> Int -> IO Int
 showProgressMaybe rc lastDownloadedBlockCount = do
   p <- readMVar (rdProgress rc)
   let newDLBC = piDownloadedBlockCount p
-  if newDLBC > lastDownloadedBlockCount then do
+  if newDLBC > lastDownloadedBlockCount
+    then do
       showProgress1 rc p
       return newDLBC
-  else do
-      warnl rc $ sformat ("No block fetched in last " % int % " seconds")
-            (progressInterval (rdOptions rc))
-      return lastDownloadedBlockCount
+    else
+      if piDownloadedBlockCount p < piTotalBlockCount p
+        then do
+          warnl rc $ sformat ("No block fetched in last " % int % " seconds")
+                (progressInterval (rdOptions rc))
+          return lastDownloadedBlockCount
+        else
+          return (-1)
 
 -- | show download progress in console. designed to run in a thread.
 showProgressLoop :: RDClientRuntimeConfig -> Int -> IO ()
 showProgressLoop rc lastDownloadedBlockCount = do
   threadDelay (progressInterval (rdOptions rc) * 1000000)
   newCount <- showProgressMaybe rc lastDownloadedBlockCount
-  showProgressLoop rc newCount
+  case newCount of
+    -1 -> return ()
+    _ -> showProgressLoop rc newCount

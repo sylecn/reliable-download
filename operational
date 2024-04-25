@@ -492,9 +492,6 @@ via env var and command line parameter.
 
 * current                                                             :entry:
 ** 
-** 2024-04-07 when combining blocks to create final file, don't print
-"No block fetched in last 10 seconds" log any more if there is no other files
-in DL list.
 ** 2024-04-07 rd-api: when a file content is changed on disk, auto invalidate all
 cached blocks.
 
@@ -537,6 +534,12 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2024-04-25 haskell: when only executable code changes, should I in increase version in package.yaml
+I think I will defer version change to avoid re-compilation of the base library.
+
+** 2024-04-07 when combining blocks to create final file, don't print
+"No block fetched in last 10 seconds" log any more if there is no other files
+in DL list.
 ** 2024-04-24 try build this project in gocd.
 - build in debian stretch agent node.
 - build in docker is fine.
