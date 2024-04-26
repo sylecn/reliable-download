@@ -85,7 +85,7 @@ spec = do
 
   describe "humanReadableSize" $ do
     it "should work" $ do
-      humanReadableSize 123 `shouldBe` "0.0 MiB"
+      humanReadableSize 123 `shouldBe` "<1.0 MiB"
       humanReadableSize 1048576 `shouldBe` "1.0 MiB"
       humanReadableSize 1048579 `shouldBe` "1.0 MiB"
       humanReadableSize (1048576 * 2) `shouldBe` "2.0 MiB"

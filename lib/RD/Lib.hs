@@ -19,8 +19,12 @@ import RD.Types
 
 -- | convert byte number to MiB. small number will become 0.
 humanReadableSize :: Integer -> T.Text
-humanReadableSize bytes = sformat (fixed 1 % " MiB")
-                          (fromInteger bytes / (1048576 :: Double))
+humanReadableSize bytes =
+  let bytesDouble = fromInteger bytes / (1048576 :: Double) in
+    if bytesDouble < 1.0 then
+      "<1.0 MiB"
+    else
+      sformat (fixed 1 % " MiB") bytesDouble
 
 -- | get sha1sum hex string for given bytes
 sha1sumOnBytes :: LB.ByteString -> LB.ByteString
