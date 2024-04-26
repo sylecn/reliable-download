@@ -97,7 +97,7 @@ https://gitlab.emacsos.com/sylecn/reliable-download
 ChangeLog
 ---------
 
-* dev
+* v1.6.0.0 2024-04-26
 
   - feature: auto detect file content changes for small files. auto invalidate metadata cache if file has changed.
   - feature: refine fileWorker logs
