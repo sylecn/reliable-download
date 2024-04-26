@@ -494,25 +494,6 @@ via env var and command line parameter.
 
 * current                                                             :entry:
 ** 
-** 2024-04-26 log refine.
-- DONE 2024-04-26T19:06:17  I  fileWorker done for /home/sylecn/d/t2/foo, 0.0 MiB, 1 blocks
-  don't use 0.0MiB, just say <1MiB or so.
-
-  humanReadableSize
-
-  add unit test for this.
-
-- 2024-04-26T19:12:02  I  fileWorker is waiting for jobs...
-  2024-04-26T19:12:02  I  fileWorker is waiting for jobs...
-
-  fileWorker-<N> is waiting for jobs
-
-  2024-04-26T19:12:02  I  fileWorker working on /home/sylecn/d/t2/foo
-  2024-04-26T19:12:02  I  fileWorker done for /home/sylecn/d/t2/foo, 0.0 MiB, 1 blocks
-
-  fileWorker-<N> working on ...
-- 
-
 ** 2024-03-12 rd-api, if file is already transferred block by block, I can support
 live compress easily. If the client request compress as param such as
 ?compress=zstd. default is no compress.
@@ -541,6 +522,28 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2024-04-26 log refine.
+- DONE 2024-04-26T19:06:17  I  fileWorker done for /home/sylecn/d/t2/foo, 0.0 MiB, 1 blocks
+  don't use 0.0MiB, just say <1MiB or so.
+
+  humanReadableSize
+
+  add unit test for this.
+
+- DONE 2024-04-26T19:12:02  I  fileWorker is waiting for jobs...
+  2024-04-26T19:12:02  I  fileWorker is waiting for jobs...
+
+  fileWorker-<N> is waiting for jobs
+
+  2024-04-26T19:12:02  I  fileWorker working on /home/sylecn/d/t2/foo
+  2024-04-26T19:12:02  I  fileWorker done for /home/sylecn/d/t2/foo, 0.0 MiB, 1 blocks
+
+  fileWorker-<N> working on ...
+
+  in startWorkers, give it a name.
+
+- 
+
 ** 2024-04-07 rd-api: when a file content is changed on disk, auto invalidate all
 cached blocks.
 

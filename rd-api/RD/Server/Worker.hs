@@ -3,7 +3,9 @@ module RD.Server.Worker (startWorkers, sha1sumFileRange, fileRange) where
 import Control.Concurrent.Chan
 import System.IO (IOMode(ReadMode), withBinaryFile)
 import GHC.IO.Handle (Handle, hTell, hSeek, SeekMode(AbsoluteSeek))
-import Control.Monad (when, replicateM_, forever)
+import Control.Monad (when, forever)
+import Data.Foldable (forM_)
+
 import Control.Concurrent (forkIO)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as LB
@@ -38,14 +40,14 @@ sha1sumFileRange filepath start end = sha1sumOnBytes <$> fileRange filepath star
 
 -- | a file worker fetch FillBlockParam from fileChan, then calculate sha1sum
 -- for all blocks and write result to redis. then mark the file as done.
-fileWorker :: RDRuntimeConfig -> IO ()
-fileWorker rc = forever $ do
-  infol rc ("fileWorker is waiting for jobs..." :: T.Text)
+fileWorker :: RDRuntimeConfig -> T.Text -> IO ()
+fileWorker rc fileWorkerName = forever $ do
+  infol rc $ fileWorkerName <> " is waiting for jobs..."
   fbp <- readChan (rcFileChan rc)
   let filepath = fbpFilepath fbp
       conn = rcRedisConn rc
   -- calculate sha1sum for each block and write result to redis hash
-  infol rc $ "fileWorker working on " <> T.pack filepath
+  infol rc $ fileWorkerName <> " working on " <> T.pack filepath
   results <- withBinaryFile filepath ReadMode $ \handle -> do
     let hashKey = blockSha1sumHashKey fbp
     mapM (calculateSha1ForBlock conn hashKey handle) (fbpBlocks fbp)
@@ -57,8 +59,9 @@ fileWorker rc = forever $ do
     Right _ -> do
       debugl rc $ "Set file status to " <> showt resultStatus <> " for " <> T.pack filepath
       infol rc $ sformat
-        ("fileWorker done for " % stext % ", " % stext % ", " % int % " blocks")
-        (T.pack filepath) (humanReadableSize (fbpFileSize fbp)) (length (fbpBlocks fbp))
+        (stext % " done for " % stext % ", " % stext % ", " % int % " blocks")
+        fileWorkerName (T.pack filepath) (humanReadableSize (fbpFileSize fbp))
+        (length (fbpBlocks fbp))
   return ()
     where
       -- | calculate sha1 for a single block. return IO True on success.
@@ -94,4 +97,5 @@ startWorkers :: RDRuntimeConfig -> IO ()
 startWorkers rc = do
   let workerCount = fileWorkerCount $ rcConfig rc
   infol rc $ "creating " <> showt workerCount <> " file worker(s)"
-  replicateM_ workerCount (forkIO $ fileWorker rc)
+  forM_ [1..workerCount]
+        (\n -> forkIO $ fileWorker rc ("fileWorker-" <> showt n))
