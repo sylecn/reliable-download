@@ -94,3 +94,7 @@ blockIdKey = Char8.pack . show
 -- new|working|done.
 fileStatusKey :: FillBlockParam -> B.ByteString
 fileStatusKey fbp = blockSha1sumHashKey fbp <> "_status"
+
+-- | the redis string key used to store this file's sha1sum
+fileSha1Key :: FillBlockParam -> B.ByteString
+fileSha1Key fbp = encodeUtf8 $ T.pack (fbpFilepath fbp) <> "_sha1"

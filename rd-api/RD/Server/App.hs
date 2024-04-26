@@ -8,6 +8,8 @@ import Control.Concurrent.Chan
 import System.IO.Error (catchIOError)
 import Control.Monad (unless)
 import qualified Data.Text as T
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as LB
 
 import Network.Wai (Application, pathInfo)
 import Web.Scotty
@@ -22,7 +24,7 @@ import qualified Data.HashMap.Strict as M
 import RD.CliVersion (cliVersion)
 import RD.Types
 import RD.Server.Config
-import RD.Lib (sha1sum, genBlocks)
+import RD.Lib (sha1sum, sha1sumOnBytes, genBlocks)
 import RD.Utils
 import qualified RD.Server.DB as DB
 
@@ -43,19 +45,77 @@ fillSha1sum rc fbp = do
         fillBlock :: Block -> BlockWithChecksum
         fillBlock (blockId, start, end) = (blockId, start, end, decodeUtf8 $ M.lookupDefault "pending" (blockIdKey blockId) blockIdSha1sumMap)
 
+-- | a sha1sum that has different types, used for storing sha1sum in redis.
+-- only used in isNewFile.
+sha1sumByteString :: FilePath -> IO B.ByteString
+sha1sumByteString filename = do
+  bytes <- LB.readFile filename
+  return $ B.toStrict $ sha1sumOnBytes bytes
+
+-- | try set file's working status to FileStatusWorking if it has not been set before.
+trySetFileToWorkingStatus :: RDRuntimeConfig -> B.ByteString -> IO (Either T.Text Bool)
+trySetFileToWorkingStatus rc strKey = do
+  DB.insertIfNotExist rc strKey $ fsBytes FileStatusWorking
+
+-- | return True if given file and block size is a new combination. if file
+-- content has changed, it is always considered a new file, old cache will be
+-- purged. when this function return Right True, it will set working flag in
+-- redis for the file name and block size combination.
+isNewFile :: RDRuntimeConfig -> FillBlockParam -> IO (Either T.Text Bool)
+isNewFile rc fbp = do
+  let strKey = fileStatusKey fbp
+      fn = T.pack $ fbpFilepath fbp
+  -- units -o %15f --terse 100MiB byte
+  if fbpFileSize fbp < 104857600 then do
+    cachedSha1E <- DB.get rc (fileSha1Key fbp)
+    case cachedSha1E of
+      Left msg -> return $ Left msg
+      Right sha1Maybe -> do
+        currentSha1 <- sha1sumByteString $ fbpFilepath fbp
+        case sha1Maybe of
+          Just cachedSha1 -> do
+            if currentSha1 /= cachedSha1
+              then do
+                -- set progress to working
+                warnl rc $ "file sha1 changed, will recalculate block hashes: " <> fn
+                let hashKey = blockSha1sumHashKey fbp
+                redisReply <- R.runRedis (rcRedisConn rc) $ R.del [hashKey]
+                case redisReply of
+                  Left reply -> do
+                    errorl rc $ "invalidate blocks old cache key failed:\n\t" <> showt reply
+                    return $ Left "invalidate blocks old cache key failed"
+                  Right _ -> do
+                    infol rc $ "invalidated blocks cache for " <> fn
+                    _ <- DB.set rc (fileSha1Key fbp) currentSha1
+                    resultE <- DB.set rc strKey $ fsBytes FileStatusWorking
+                    case resultE of
+                      Left _ -> return $ Left "set file status to working failed"
+                      Right _ -> return $ Right True
+              else do
+                debugl rc $ "file sha1 not changed: " <> fn
+                trySetFileToWorkingStatus rc strKey
+          Nothing -> do
+            resultE <- DB.set rc (fileSha1Key fbp) currentSha1
+            case resultE of
+              Left msg -> return $ Left msg
+              Right _ -> trySetFileToWorkingStatus rc strKey
+  else do
+    debugl rc "file sha1 is not checked for large files"
+    trySetFileToWorkingStatus rc strKey
+
 -- | given a FillBlockParam, if this file is new, send job to worker and mark
 -- it as working. if there is an error, return IO Left.
 processNewFileAsyncMaybe :: RDRuntimeConfig -> FillBlockParam -> ExceptT T.Text IO ()
 processNewFileAsyncMaybe rc fbp = do
   let strKey = fileStatusKey fbp
       filePath = fbpFilepath fbp
-  resultE <- liftIO $ DB.insertIfNotExist rc strKey $ fsBytes FileStatusWorking
+  resultE <- liftIO $ isNewFile rc fbp
   throwOnLeft resultE
   let insertOk = fromRight' resultE
   if insertOk then liftIO $ do
-      infol rc $ T.pack filePath <> " is a new file, sending task to worker"
-      writeChan (rcFileChan rc) fbp
-      return ()
+    infol rc $ T.pack filePath <> " is a new file, sending task to worker"
+    writeChan (rcFileChan rc) fbp
+    return ()
   else do
     oldStatusE <- liftIO $ do
       debugl rc $ T.pack filePath <> " is not a new file"

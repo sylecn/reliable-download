@@ -97,6 +97,10 @@ https://gitlab.emacsos.com/sylecn/reliable-download
 ChangeLog
 ---------
 
+* dev
+
+  - feature: auto detect file content changes for small files. auto invalidate metadata cache if file has changed.
+
 * v1.5.0.0 2024-04-08
 
   - bugfix: properly handle unicode string in URL path

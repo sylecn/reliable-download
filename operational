@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2024-04-25>
+Time-stamp: <2024-04-26>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2022-03-14 project dir structure
@@ -167,6 +167,8 @@ this should return json of the block metadata.
   hset <filepath>_blockSize blockId sha1sum
 
   set <filepath>_blockSize_status working|done
+
+  set <filepath>_sha1 SHA1
 
 - worker pool is there for calculating all blocks for one file.
 
@@ -492,18 +494,18 @@ via env var and command line parameter.
 
 * current                                                             :entry:
 ** 
-** 2024-04-07 rd-api: when a file content is changed on disk, auto invalidate all
-cached blocks.
+** 2024-04-26 log refine.
+- 2024-04-26T19:06:17  I  fileWorker done for /home/sylecn/d/t2/foo, 0.0 MiB, 1 blocks
+  don't use 0.0MiB, just say <1MiB or so.
+- 2024-04-26T19:12:02  I  fileWorker is waiting for jobs...
+  2024-04-26T19:12:02  I  fileWorker is waiting for jobs...
 
-- when user request rd metadata, and file's mtime changed, do a sha1sum on
-  first 4M and last 4M of the file. if any of these sha1sum changes,
-  invalidate cache in redis.
+  fileWorker-<N> is waiting for jobs
 
-  when calculate metadata, cache file's mtime, first 4M and last 4M of the
-  file's content's sha1sum.
-- this will allow DL the correct file when file content for the same file name
-  is changed.
-- give some log in console when file content changes.
+  2024-04-26T19:12:02  I  fileWorker working on /home/sylecn/d/t2/foo
+  2024-04-26T19:12:02  I  fileWorker done for /home/sylecn/d/t2/foo, 0.0 MiB, 1 blocks
+
+  fileWorker-<N> working on ...
 - 
 
 ** 2024-03-12 rd-api, if file is already transferred block by block, I can support
@@ -534,6 +536,79 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2024-04-07 rd-api: when a file content is changed on disk, auto invalidate all
+cached blocks.
+
+- when user request rd metadata, and file's mtime changed, do a sha1sum on
+  first 4M and last 4M of the file. if any of these sha1sum changes,
+  invalidate cache in redis.
+
+  when calculate metadata, cache file's mtime, first 4M and last 4M of the
+  file's content's sha1sum.
+
+  2024-04-25 is it easy to get last 4M? yes.
+  in C, should be seek to length-4M byte and read 4M.
+
+  from correctness point of view, this is not enough. user could modify the
+  center part of the file. How about just always recalculate if mtime changed?
+
+  how about this? just do it for small files, use full content hash as
+  fingerprint. For large files, user is supposed to rename it or clear file
+  metadata cache. If so, user can always rename the file before run rd again.
+
+  just give a warning will be enough.
+
+  design:
+  auto calculate and check fingerprint for small files (<200M), skip
+  fingerprint check for large files.
+
+- this will allow DL the correct file when file content for the same file name
+  is changed.
+- give some log in console when file content changes.
+
+*** auto calculate and check fingerprint for small files (<200M), 
+skip fingerprint check for large files.
+
+- implement this now.
+
+  this change should be backward compatible to older rd clients.
+  it only affect server side metadata caching.
+
+- code in getRdHandler
+
+  resultE <- liftIO $ runExceptT $ processNewFileAsyncMaybe rc fbp
+
+  processNewFileAsyncMaybe :: RDRuntimeConfig -> FillBlockParam -> ExceptT T.Text IO ()
+
+  resultE <- liftIO $ DB.insertIfNotExist rc strKey $ fsBytes FileStatusWorking
+  throwOnLeft resultE
+
+  here, if files' sha1 has changed, use DB.set instead of DB.insertIfNotExist.
+
+- add proper logging.
+
+- create a unit test for this?
+  it's all IO actions, maybe I will test it myself.
+
+  on agem10,
+  stack exec -- rd-api -d ~/d/t2/
+  create ~/d/t2/foo with some content
+  stack exec -- rd http://127.0.0.1:8082/foo
+
+- problems
+  - if I send job to worker. will old redis key be rewritten?
+    will it ever return expired cache data?
+
+    it will call this:
+    blocksWithSha1sum <- liftIO $ fillSha1sum rc fbp
+
+    I need to delete the old redis key.
+
+  - test the new code.
+    when foo content changed.
+
+    it works.
+
 ** 2024-04-25 haskell: when only executable code changes, should I in increase version in package.yaml
 I think I will defer version change to avoid re-compilation of the base library.
 

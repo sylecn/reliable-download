@@ -31,6 +31,7 @@ instance Show FileStatus where
     show FileStatusDone = "done"
     show FileStatusUnknown = "unknown"
 
+-- | convert FileStatus to ByteString
 fsBytes :: FileStatus -> B.ByteString
 fsBytes = Char8.pack . show
 
