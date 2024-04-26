@@ -506,11 +506,6 @@ each block has a block size. I know when it is started and when it is
 finished. I know how many more blocks to fetch. it should be easy to
 estimate. calculate a moving avg speed using the last 5 blocks DLed.
 
-** 2022-03-15 rd client, is there a built-in repeat/loop function?
-IO () -> IO ()
-
-I should not need to write showProgressLoop explicitly.
-
 ** 2018-05-09 test the app under unstable network.
 I remember there are tools that can simulate packet loss.
 policy in ovs can do it.
@@ -2685,6 +2680,13 @@ I can use haskell fork though.
 yes. see Route Patterns.
 
 * wontfix                                                             :entry:
+** 2022-03-15 rd client, is there a built-in repeat/loop function?
+IO () -> IO ()
+
+I should not need to write showProgressLoop explicitly.
+
+- 2024-04-26 I think recursion is good.
+
 ** 2024-04-24 try build this project using nix with flake.
 - create flake.nix.
   https://www.tweag.io/blog/2020-05-25-flakes/
