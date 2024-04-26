@@ -1,0 +1,4 @@
+#!/bin/sh
+set -e
+stack build --test
+stack exec hlint -- -g || true

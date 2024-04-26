@@ -35,6 +35,7 @@ parseIntEnv key env =
                   [(i, [])] -> Right $ Just i
                   _ -> Left $ "failed to parse " <> T.pack key <> " from env variable: " <> T.pack s
 
+{-# ANN updateRDConfigFromEnvPure ("HLint: ignore Use =<<" :: String) #-}
 updateRDConfigFromEnvPure :: [(String, String)] -> RDConfig -> Either T.Text RDConfig
 updateRDConfigFromEnvPure env c0 =
   (\c -> Right $ maybe c (\h -> c { host=h }) (lookup "HOST" env)) c0 >>=
