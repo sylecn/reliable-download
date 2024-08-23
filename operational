@@ -537,23 +537,11 @@ via env var and command line parameter.
 
 * current                                                             :entry:
 ** 
-** 2024-08-24 when DL more than 1 URL, one thread is combining blocks, other thread can continue DL.
--w,--worker INT          concurrent HTTP download worker (default: 5)
+** 2024-08-24 rd-api add an option to set block size.
+--block-size 2M,4M,8M
 
-it's already supported.
-
-- the speed issue is server side block size is too small. (2MiB block)
-  should use bigger block when connection bandwidth is high as 200Mbps.
-
-  HTTP has initial connection cost.
-  it's not using HTTP/2.
-
-  Either make the block size bigger or use HTTP/2 server + HTTP/2 client.
-- add a option to set block size.
-  --block-size 2M,4M,8M
-- there is no packet loss from agem10 to de06 via ipv6.
-  rd-api is not needed to transfer big files.
-- 
+when network is unstable, but bandwidth/throughput is good, use a larger block
+size can improve DL speed.
 
 ** 2024-08-24 build rd-api, rd for aarch64 and distributed it on pypi.
 - currently the python pkg is marked works for all arch, which is not correct.
@@ -570,8 +558,9 @@ it's already supported.
 live compress easily. If the client request compress as param such as
 ?compress=zstd. default is no compress.
 
-- when the source file is just tar, not compressed format like squashfs or
-  zip, this can speed up transfer by delaying compress.
+- when the source file is tar/qcow2/raw, not compressed format like
+  squashfs/zip/mkv/mp4, this can speed up transfer by doing real time compress
+  at transfer time.
 
 ** 2024-03-12 rd, add an DL remaining time estimate, based on estimated DL speed.
 each block has a block size. I know when it is started and when it is
@@ -2870,6 +2859,24 @@ I can use haskell fork though.
 yes. see Route Patterns.
 
 * wontfix                                                             :entry:
+** 2024-08-24 when DL more than 1 URL, one thread is combining blocks, other thread can continue DL. :invalid:
+-w,--worker INT          concurrent HTTP download worker (default: 5)
+
+it's already supported.
+
+- the speed issue is server side block size is too small. (2MiB block)
+  should use bigger block when connection bandwidth is high as 200Mbps.
+
+  HTTP has initial connection cost.
+  it's not using HTTP/2.
+
+  Either make the block size bigger or use HTTP/2 server + HTTP/2 client.
+- MOVED add an option to set block size.
+  --block-size 2M,4M,8M
+- there is no packet loss from agem10 to de06 via ipv6.
+  rd-api is not needed to transfer big files.
+- 
+
 ** 2022-03-15 rd client, is there a built-in repeat/loop function?
 IO () -> IO ()
 
