@@ -4,6 +4,7 @@ import Control.Concurrent.MVar
 import qualified Data.Text as T
 
 import qualified System.Logger as L
+import qualified Network.HTTP.Client as H
 
 -- | command line options
 data RDOptions = RDOptions
@@ -34,4 +35,6 @@ data Progress = Progress {
 data RDClientRuntimeConfig = RDClientRuntimeConfig
     { rdOptions :: RDOptions
     , rdLogger :: L.Logger
-    , rdProgress :: MVar Progress}
+    , rdProgress :: MVar Progress
+    , rdManager :: H.Manager
+    }

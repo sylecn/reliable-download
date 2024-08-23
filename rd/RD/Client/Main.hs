@@ -23,7 +23,7 @@ import qualified Data.ByteString.Char8 as Char8
 
 import Network.HTTP.Types (statusCode)
 import Network.HTTP.Simple
-import Network.HTTP.Client (path, responseStatus)
+import qualified Network.HTTP.Client as H
 import Formatting
 import Control.Retry (retrying, constantDelay, limitRetries, rsIterNumber)
 import qualified System.Logger as L
@@ -81,8 +81,8 @@ fetchBlockFromHttp rc fbp = do
   assert (sha1sum /= "pending") (return ())
   debugl rc $ "downloading " <> T.pack filename <> " block " <> showt blockId
   req <- parseRequest $ T.unpack $ fbpUrl fbp
-  response <- httpLBS $ addRequestHeader "Range" rangeHeader req
-  let statuscode = statusCode $ responseStatus response
+  response <- H.httpLbs (addRequestHeader "Range" rangeHeader req) (rdManager rc)
+  let statuscode = statusCode $ H.responseStatus response
   -- for small files, range may cover all bytes, result status is 200.
   if statuscode `notElem` [206, 200] then do
       errorl rc $ "get block " <> showt blockId <> " failed, HTTP status code is " <> showt statuscode
@@ -186,8 +186,8 @@ getRDResponse :: RDClientRuntimeConfig -> T.Text -> IO RDResponse
 getRDResponse rc url = catches
   (do
     req <- parseRequest $ T.unpack url
-    debugl rc $ "GET /rd" <> decodeUtf8 (path req)
-    resp <- httpJSON $ req { path="/rd" <> path req }
+    debugl rc $ "GET /rd" <> decodeUtf8 (H.path req)
+    resp <- httpJSON $ req { H.path="/rd" <> H.path req }
     return $ getResponseBody resp)
    [Handler (\ (e :: HttpException) -> do
                errorl rc $ "getRDResponse HttpException: " <> showt e
@@ -284,9 +284,12 @@ cliApp opts = do
   progress <- newMVar emptyProgress {
                 piTotalFileCount=length (urls opts)
               }
+  manager <- H.newManager H.defaultManagerSettings { H.managerConnCount=20 }
   let rc = RDClientRuntimeConfig { rdOptions=opts
                                  , rdLogger=logger
-                                 , rdProgress=progress }
+                                 , rdProgress=progress
+                                 , rdManager=manager
+                                 }
   debugl rc $ "command line options: " <> showt opts
   let dir = tempDir opts
   catchIOError (createDirectoryIfMissing True dir)

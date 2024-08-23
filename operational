@@ -537,6 +537,24 @@ via env var and command line parameter.
 
 * current                                                             :entry:
 ** 
+** 2024-08-24 when DL more than 1 URL, one thread is combining blocks, other thread can continue DL.
+-w,--worker INT          concurrent HTTP download worker (default: 5)
+
+it's already supported.
+
+- the speed issue is server side block size is too small. (2MiB block)
+  should use bigger block when connection bandwidth is high as 200Mbps.
+
+  HTTP has initial connection cost.
+  it's not using HTTP/2.
+
+  Either make the block size bigger or use HTTP/2 server + HTTP/2 client.
+- add a option to set block size.
+  --block-size 2M,4M,8M
+- there is no packet loss from agem10 to de06 via ipv6.
+  rd-api is not needed to transfer big files.
+- 
+
 ** 2024-08-24 build rd-api, rd for aarch64 and distributed it on pypi.
 - currently the python pkg is marked works for all arch, which is not correct.
   I should explicitly set one for amd64, one for aarch64.
@@ -571,6 +589,124 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2024-08-24 support HTTP/2 on both server side and client side. or at least support keepalive.
+- http2-client: A native HTTP2 client library.
+  https://hackage.haskell.org/package/http2-client
+
+  is this easy to use?
+
+  haskell-grpc-native/http2-client: A native HTTP2 client in Haskell
+  https://github.com/haskell-grpc-native/http2-client
+
+  seems not easy to use.
+  check examples.
+  https://github.com/haskell-grpc-native/http2-client/blob/master/examples/SimpleGet.lhs
+  it also needs to manage tls connection.
+
+- http2: HTTP/2 library
+  https://hackage.haskell.org/package/http2
+  a lib for both server and client.
+- warp: A fast, light-weight web server for WAI applications.
+  https://hackage.haskell.org/package/warp
+  warp support HTTP/2.
+  Warp supports direct and ALPN (in TLS) but not upgrade.
+  // can HTTP/2 work without SSL? is that what direct mean? try it.
+
+  curl --http2 -6 -o /dev/null http://[2603:c020:8005:d355:aaf5:1f9c:d015:6ac1]:8082/My.Mister.S01E01.Episode.1.1080p.AMZN.WEB-DL.DDP.2.0.H.264-CHDWEB.mkv
+  curl --http2 will use Upgrade: header if target URL is http.
+  so curl won't work with HTTP/2 on HTTP.
+
+- http-client
+  https://www.stackage.org/package/http-client
+  no HTTP/2 support.
+
+  is there keepalive/session support? that would also help.
+  no.
+
+  gpt: is there a haskell http client library with keepalive or session support? my goal is to connect to the same HTTP server with lower latency and larger throughput by reducing tcp connection initiation.
+
+  //side note: chatgpt gives much better result than Chinese LLMs.
+
+  http-client
+
+  a connection pool is used by default. just use the same manager to send your
+  request.
+
+  #+begin_src haskell
+    import Network.HTTP.Client
+    import Network.HTTP.Client.TLS (tlsManagerSettings)
+
+    main :: IO ()
+    main = do
+        manager <- newManager tlsManagerSettings
+        request <- parseRequest "http://example.com/"
+        response <- httpLbs request manager
+        putStrLn $ "Response body length: " ++ show (length (responseBody response))
+  #+end_src
+
+  check my code.
+  http-conduit
+  http-client
+  are both in dependency list.
+
+  fetchBlockFromHttp
+  I used httpLBS without a manager.
+
+  that is from http-conduit pkg.
+
+  httpLBS :: MonadIO m => Request -> m (Response ByteString)
+  http-conduit 	Network.HTTP.Simple
+
+  check doc
+  https://www.stackage.org/lts-21.25
+
+  https://www.stackage.org/haddock/lts-22.33/http-conduit-2.3.8.3/Network-HTTP-Simple.html#v:httpLBS
+  setRequestManager :: Manager -> Request -> Request
+
+  Instead of using the default global Manager, use the supplied Manager.
+
+  there is a default global Manager? where is it stored?
+
+  https://www.stackage.org/haddock/lts-22.33/http-conduit-2.3.8.3/Network-HTTP-Client-Conduit.html#t:Manager
+  If possible, you should share a single Manager between multiple threads and requests.
+
+  Please use the defaultManagerSettings function and then modify individual
+  settings. For more information, see
+  http://www.yesodweb.com/book/settings-types.
+
+  httpLbs :: (MonadIO m, HasHttpManager env, MonadReader env m) => Request -> m (Response ByteString) 
+  Same as httpLbs, except it uses the Manager in the reader environment.
+
+- how to support keepalive?
+  create a manager and store it in RDClientRuntimeConfig.
+  use setRequestManager to explicitly use it.
+
+  if I use RIO, I will probably use
+  httpLbs :: (MonadIO m, HasHttpManager env, MonadReader env m) => Request -> m (Response ByteString) 
+  but I didn't use any ReaderT, so I will use setRequestManager instead.
+
+  or just use
+  import qualified Network.HTTP.Client          as H
+
+  httpLbs :: Request -> Manager -> IO (Response ByteString) 
+  https://www.stackage.org/haddock/lts-22.33/http-client-0.7.17/Network-HTTP-Client-Internal.html#v:httpLbs
+
+  //add keepalive doesn't improve throughput much.
+  check the default manager config.
+
+  try -w 20
+  yes. this works.
+  now 19MiB/s    ~160Mbps
+
+- check default manager config.
+  https://www.stackage.org/haddock/lts-22.33/http-client-0.7.17/Network-HTTP-Client-Internal.html#t:ManagerSettings
+  https://www.stackage.org/haddock/lts-22.33/http-client-0.7.17/src/Network.HTTP.Client.Manager.html#defaultManagerSettings
+  single host 10 connections.
+  timeout 30s.
+  max total idle connection count 512
+
+  the default is fine.
+
 ** 2024-04-26 log refine.
 - DONE 2024-04-26T19:06:17  I  fileWorker done for /home/sylecn/d/t2/foo, 0.0 MiB, 1 blocks
   don't use 0.0MiB, just say <1MiB or so.
