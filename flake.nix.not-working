@@ -1,7 +1,11 @@
 {
   description = "download large files across unreliable network via HTTP";
   inputs.haskellNix.url = "github:input-output-hk/haskell.nix";
-  inputs.nixpkgs.follows = "haskellNix/nixpkgs-2311";
+  # always check which channel and which ghc is supported (cached) by ci.nix
+  # https://github.com/input-output-hk/haskell.nix/blob/master/ci.nix
+  # for more information, see Why am I building GHC?
+  # https://input-output-hk.github.io/haskell.nix/troubleshooting.html#why-am-i-building-ghc
+  inputs.nixpkgs.follows = "haskellNix/nixpkgs-unstable";
   inputs.flake-utils.url = "github:numtide/flake-utils";
   outputs = { self, nixpkgs, flake-utils, haskellNix }:
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
@@ -12,7 +16,7 @@
           rdProject =
             final.haskell-nix.project' {
               src = ./.;
-              compiler-nix-name = "ghc928";
+              compiler-nix-name = "ghc948";
               # This is used by `nix develop .` to open a shell for use with
               # `cabal`, `hlint` and `haskell-language-server`
               shell.tools = {
@@ -33,7 +37,6 @@
       flake = pkgs.rdProject.flake {};
     in flake // {
       # Built by `nix build .`
-      legacyPackages = pkgs;
       packages.default = flake.packages."reliable-download:exe:rd-api";
     });
 

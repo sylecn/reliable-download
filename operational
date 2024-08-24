@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2024-08-24>
+Time-stamp: <2024-08-25>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2022-03-14 project dir structure
@@ -553,7 +553,43 @@ size can improve DL speed.
   should use a free CI tool to build the artifact and upload it to pypi.
 
   check whether this can be done using github or another CI tool.
+- 2024-08-24 does haskell support cross-compiling? I would like to build arm64
+  binary from x86_64 PC.
+
+  does nix made that easy? I can try nix on de06, with a older glibc. that
+  way, cross-compile will not be needed.
+- search: ghc cross compile for aarch64
+- How to build application in arm64 arch with a x86_64 host - Haskell Community
+  https://discourse.haskell.org/t/how-to-build-application-in-arm64-arch-with-a-x86-64-host/7456/6
+  it is possible. but you have to build a ghc yourself.
+- State of Haskell Cross Compilation : r/haskell
+  https://www.reddit.com/r/haskell/comments/h0e5ui/state_of_haskell_cross_compilation/
+
+  #+begin_quote
+  We have been using haskell cross compilation (to windows) at work in
+  production for quite a while now. And this was the reason why haskell.nix
+  was conceived.
+  #+end_quote
+
+  nix can do it, with haskell.nix.
+
+  the problem with nix is, it needs to DL lots of things and network is slow
+  when accessed from China.
+
+  input-output-hk/haskell.nix: Alternative Haskell Infrastructure for Nixpkgs
+  https://github.com/input-output-hk/haskell.nix
+  it's maintained.
+
+  Introduction - Alternative Haskell Infrastructure for Nixpkgs
+  https://input-output-hk.github.io/haskell.nix/index.html
+  has extensive document.
+
+  I should try it.
+
+- Cross-compiling Haskell to ARM. : r/haskell
+  https://www.reddit.com/r/haskell/comments/a15hfv/crosscompiling_haskell_to_arm/
 - 
+
 ** 2024-03-12 rd-api, if file is already transferred block by block, I can support
 live compress easily. If the client request compress as param such as
 ?compress=zstd. default is no compress.
@@ -2859,6 +2895,215 @@ I can use haskell fork though.
 yes. see Route Patterns.
 
 * wontfix                                                             :entry:
+** 2024-08-24 try build this project using haskell.nix
+- Getting started with Flakes - Alternative Haskell Infrastructure for Nixpkgs
+  https://input-output-hk.github.io/haskell.nix/tutorials/getting-started-flakes.html
+- I already have a not working file at ./flake.nix.not-working
+- try it.
+
+  nix --allow-import-from-derivation flake metadata .
+  withproxy nix --allow-import-from-derivation flake show .
+
+  tmake withproxy nix run .#reliable-download:exe:rd-api
+  tmake withproxy nix run .#reliable-download:exe:rd
+
+  //withproxy is needed, many pkg requires access to github to fetch and build.
+
+  tmake withproxy nix build .#reliable-download:lib:reliable-download
+  tmake withproxy nix build .#reliable-download:exe:rd-api
+  tmake withproxy nix build .#reliable-download:exe:rd
+
+  to run dev shell
+  nix develop .
+  cabal build reliable-download
+
+- problems
+  - 30m DL actually finished. cool.
+
+  - a build error.
+
+    nix build .#reliable-download:lib:reliable-download
+
+    #+begin_quote
+    error: flake 'git+file:///home/sylecn/projects/reliable-download' does not provide attribute 'packages.x86_64-linux.reliable-download:lib:reliable-download', 'legacyPackages.x86_64-linux.reliable-download:lib:reliable-download' or 'reliable-download:lib:reliable-download'
+    #+end_quote
+
+    try list packages, flake metadata.
+
+    nix flake metadata .
+    only has input. no output?
+
+    nix flake show .
+    error in other people's nix code.
+    #+begin_quote
+    error: cannot build '/nix/store/825d0r20hz3l3m1k29iw8z55sqf63xca-stack-repos.drv^out' during evaluation because the option 'allow-import-from-derivation' is disabled
+    #+end_quote
+
+    check this option
+    allow-import-from-derivation
+    not documented in haskell.nix doc.
+    try google
+
+    search: haskell.nix cannot build during evaluation because the option 'allow-import-from-derivation' is disabled
+
+    "'allow-import-from-derivation' is disabled" error · Issue #34 · purenix-org/purenix
+    https://github.com/purenix-org/purenix/issues/34
+
+    IFD (import from derivation)
+
+    Native support for import-from-derivation – Hercules CI blog
+    https://blog.hercules-ci.com/2019/08/30/native-support-for-import-for-derivation/
+
+    Don't allow IFD in flakes by default by edolstra · Pull Request #5253 · NixOS/nix
+    https://github.com/NixOS/nix/pull/5253
+
+    try enable IFD
+    nix --allow-import-from-derivation flake show .
+    it's said it can work if you only enable your host's arch in eachSystem call.
+
+    yes. this works.
+
+  - has HTTP 524 error from cache.iog.io
+    auto retry okay.
+
+  - lots of DL, again, for
+    tmake withproxy nix run .#reliable-download:exe:rd-api
+
+    including python3-3.11.8
+
+    780MiB DL, 9312.6MiB unpacked
+
+    fetching ghc-9.0.2 why?
+
+    now shows
+    947MiB DL, 11093MiB unpacked.
+
+    //11GiB to build a haskell project. that's more than flutter + android sdk combined.
+
+    2024-08-25 01:28:54
+    before build
+    33G used on /
+    now 43G used on /
+
+    2024-08-25 01:30:15
+    building ghc-9.4.8.
+    no. maybe I should not specify a version.
+
+    compiler-nix-name = "ghc948";
+    what should I put here?
+
+    try search in nixpkgs-2311
+    which ghc is there.
+    no. website can only search 24.05 and unstable.
+    should I use unstable?
+
+    try ghc94
+    nope.
+    #+begin_quote
+    error: This version of Nixpkgs does not contain GHC 9.4.8
+    (or it is not present at attribute 'ghc94)').
+    Either switch to a version of Nixpkgs which does have this version, or use a version
+    of GHC which the current version of Nixpkgs contains.
+    #+end_quote
+
+    how to search pkg in nixpkgs-2311?
+    nix search nixpkgs ghc94
+    nix search nixpkgs#nixos-23.11 ghc94
+
+    none of these work.
+
+    search: haskell.nix flake what should I put in compiler-nix-name?
+
+    check haskell.nix source code
+    https://github.com/input-output-hk/haskell.nix/blob/master/compiler/ghc/default.nix
+    compiler-nix-name
+    can I omit it?
+    try ghc928
+    now it tries to build ghc 8.10.7.
+    WTF.
+
+    Why am I building GHC?
+    https://input-output-hk.github.io/haskell.nix/troubleshooting.html#why-am-i-building-ghc
+
+    supported ghc version is mentioned in ci.nix
+
+    haskell.nix/ci.nix at master · input-output-hk/haskell.nix
+    https://github.com/input-output-hk/haskell.nix/blob/master/ci.nix
+
+    for R2311
+
+    unstable + ghc948
+    this should work.
+    no more ghc builds.
+
+  - make https://cache.iog.io faster
+
+    https://ping.chinaz.com/
+    cache.iog.io
+    cache.iog.io.		23	IN	A	104.21.38.77
+    cache.iog.io.		23	IN	A	172.67.220.22
+    可以直接访问，不要翻墙。cloudflare.
+
+    都可以。翻墙也可以，不翻也可以。
+
+  - use unstable channel
+    6GiB unpack, 830M DL.
+    need to build 169 pkgs, copy 201 artifacts.
+
+    fetching ghc-9.6.4 from cache.iog.io
+    no build ghc this time.
+    this is used to build some tools.
+
+    also fetching ghc-9.4.8 from sjtu.edu.cn
+    this is used to build my project.
+
+    sjtu.edu.cn is slower than cache.iog.io.
+    I have no direct rule for it.
+
+    DOMAIN-SUFFIX,sjtu.edu.cn,DIRECT
+
+    with DIRECT rule, it's still slow.
+
+    https://mirrors.sjtug.sjtu.edu.cn/nix-channels/store
+
+    https://mirrors.sjtug.sjtu.edu.cn/
+    tmake curl -v -o /dev/null https://mirrors.sjtug.sjtu.edu.cn/
+    不慢的啊。
+
+    drop withproxy. since both repo is DIRECT access.
+
+    only have 100KiB/s bandwidth.
+    try this:
+    curl -OL https://mirror.sjtu.edu.cn/debian-cd/12.6.0-live/amd64/iso-hybrid/debian-live-12.6.0-amd64-kde.iso
+    17MiB/s
+
+    2024-08-25 02:16:31
+    build ghc-9.4.8 again!!
+    I thought the binary is DL, did it just DL the source code?
+    noooooooooooooo.
+
+    now 51G used on /
+
+    it's crazy and not working.
+    canceled.
+
+    maybe it's ghc94, not ghc948.
+    nope. ghc94 nix error.
+
+    try ghc924.
+    that is in the md file.
+    https://github.com/input-output-hk/haskell.nix/blob/master/docs/reference/supported-ghc-versions.md
+
+    now it wants to build
+    ghc-a54827e
+    wtf.
+
+    yeah, nothing works.
+    nix is a total PITA.
+
+  - WONTFIX try search in github see whether any open source project is using
+    haskell.nix
+
 ** 2024-08-24 when DL more than 1 URL, one thread is combining blocks, other thread can continue DL. :invalid:
 -w,--worker INT          concurrent HTTP download worker (default: 5)
 
