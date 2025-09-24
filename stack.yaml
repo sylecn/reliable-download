@@ -26,10 +26,10 @@ packages:
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
 extra-deps:
-  - git: https://gitlab.emacsos.com/sylecn/io-thread-pool.git
+  - git: https://github.com/sylecn/io-thread-pool.git
     commit: 58041a07560383bac22f6702074242c3e2097106
     # nix-sha256: 04kj3bfn17mv02bs8ldfa37s52fq2ycqwjcdg4hyns1syy1csw0l
-  - git: https://gitlab.emacsos.com/sylecn/tinylog.git
+  - git: https://github.com/sylecn/tinylog.git
     commit: a49750ffb2923d40e834cec77a9900b4167c2ea5
     # nix-sha256: 1h21xckxd4ls8vinivsh5ibmjpccijc8nhh9zgqxlnvq56x62f7f
 

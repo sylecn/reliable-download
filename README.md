@@ -142,4 +142,4 @@ downloaded file" useless in unreliable network.
 ## License
 
 Reliable download is released under GPLv3+. Source code can be found at
-https://gitlab.emacsos.com/sylecn/reliable-download
+https://github.com/sylecn/reliable-download
