@@ -537,12 +537,6 @@ via env var and command line parameter.
 
 * current                                                             :entry:
 ** 
-** 2024-08-24 rd-api add an option to set block size.
---block-size 2M,4M,8M
-
-when network is unstable, but bandwidth/throughput is good, use a larger block
-size can improve DL speed.
-
 ** 2024-08-24 build rd-api, rd for aarch64 and distributed it on pypi.
 - currently the python pkg is marked works for all arch, which is not correct.
   I should explicitly set one for amd64, one for aarch64.
@@ -626,6 +620,87 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2024-08-24 rd-api add an option to set block size.
+--block-size 2M,4M,8M
+
+when network is unstable, but bandwidth/throughput is good, use a larger block
+size can improve DL speed.
+
+~/projects/reliable-download/rd-api/RD/Server/App.hs
+
+- 2026-06-01 cdx will code this.
+- build okay.
+- cdx: is the original redis cache schema okay for this change?
+- cdx: > fileSha1Key is per file path only (not per block size), and on file-content change the code currently deletes only the current size’s hash key.
+
+  please double check and show me the code that delete the invalidated hash
+  key if it really did this.
+
+- cdx: now please consider real world use case combinations. do case by case
+  analysis, is there really a bug if it only delete one key (fn + block size)?
+
+- cdx: in step 4, when user request size B.
+
+  cachedSha1E is read via redis cache.
+  currentSha1 matches cached value as it has been seen before.
+
+  it returns
+  trySetFileToWorkingStatus rc strKey
+  that is the same code when file size > 100MiB.
+  it didn't read any cached block metadata.
+
+  so what is the redis cache used for? does it cache block metadata?
+
+- redis block metadata cache is used in
+
+  fillSha1sum rc fbp
+
+  this will always use existing cache if it exists.
+
+- so the bug does exist.
+
+  use case is:
+  1. on server,
+     rd-api --block-size 2M
+
+     on client,
+     rd http://server/small-a.dat
+
+     will generate block metadata for 2M block size.
+
+  2. on server,
+     rd-api --block-size 4M
+
+     on client,
+     rd http://server/small-a.dat
+
+     will generate block metadata for 4M block size.
+
+  3. on server,
+     modify content of small-a.dat
+
+  4. on server,
+     rd-api --block-size 2M
+
+     on client,
+     rd http://server/small-a.dat
+
+     will regenerate block metadata for 2M block size, because file's sha1 changed.
+
+  5. on server,
+     rd-api --block-size 4M
+
+     on client,
+     rd http://server/small-a.dat
+
+     will *not* re-generate block metadata for 4M block size.
+
+     okay. so new file mark should be filename + block size now.
+
+- cdx: implement patch option 2.
+
+  On SHA change, delete all size variants for that file (not just current size).
+
 ** 2026-06-01 cdx: rd: found a bug, the log timestamp is a constant. try fix it.
 @rd/RD/Client/Main.hs
 @rd/RD/Client/Logging.hs

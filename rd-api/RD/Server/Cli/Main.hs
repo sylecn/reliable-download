@@ -52,6 +52,10 @@ updateRDConfigFromEnvPure env c0 =
   (\c -> Right $ maybe c (\d -> c { webRoot=d }) (lookup "WEB_ROOT" env)) >>=
   (\c -> either
            Left
+           (maybe (Right c) (\i -> Right $ c { blockSizeInByte=fromIntegral i }))
+           (parseIntEnv "BLOCK_SIZE" env)) >>=
+  (\c -> either
+           Left
            (maybe (Right c) (\i -> Right $ c { fileWorkerCount=i }))
            (parseIntEnv "WORKER" env))
 

@@ -1,8 +1,20 @@
 module RD.Server.Cli.Opts (argParser) where
 
 import Options.Applicative
+import qualified Data.Text as T
 
 import RD.Server.Config
+
+parseBlockSize :: ReadM Integer
+parseBlockSize = eitherReader $ \s ->
+  let t = T.pack s
+      upper = T.toUpper t
+      parseNum x = case reads (T.unpack x) of
+                     [(i, "")] | i > 0 -> Right i
+                     _ -> Left "block size must be positive integer, example: 2M, 4M, 8M"
+  in case T.unsnoc upper of
+       Just (numTxt, 'M') -> fmap (\n -> n * 1024 * 1024) (parseNum numTxt)
+       _ -> Left "invalid --block-size, only MiB suffix is supported, example: 2M"
 
 argParser :: Parser RDConfig
 argParser = RDConfig
@@ -39,6 +51,12 @@ argParser = RDConfig
       <> showDefault
       <> value "."
       <> metavar "DIR" )
+  <*> option parseBlockSize
+      (  long "block-size"
+      <> help "download block size, supports MiB suffix, e.g. 2M, 4M, 8M. default is 2M."
+      <> showDefault
+      <> value 2097152
+      <> metavar "SIZE" )
   <*> option auto
       (  long "worker"
       <> short 'w'

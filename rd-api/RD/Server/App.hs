@@ -27,6 +27,12 @@ import RD.Lib (sha1sum, sha1sumOnBytes, genBlocks)
 import RD.Utils
 import qualified RD.Server.DB as DB
 
+blockSizeText :: Integer -> T.Text
+blockSizeText sizeInByte =
+  if sizeInByte `mod` (1024 * 1024) == 0
+    then showt (sizeInByte `div` (1024 * 1024)) <> "MiB"
+    else showt sizeInByte <> "B"
+
 -- | fill block sha1sum, if sha1sum is not ready yet, put "pending" there.
 fillSha1sum :: RDRuntimeConfig -> FillBlockParam -> IO [BlockWithChecksum]
 fillSha1sum rc fbp = do
@@ -50,6 +56,31 @@ sha1sumByteString :: FilePath -> IO B.ByteString
 sha1sumByteString filename = do
   bytes <- LB.readFile filename
   return $ B.toStrict $ sha1sumOnBytes bytes
+
+-- | invalidate all redis keys for a file, including all block-size variants.
+invalidateFileCaches :: RDRuntimeConfig -> FilePath -> IO (Either T.Text ())
+invalidateFileCaches rc filename = do
+  let keyPattern = encodeUtf8 $ T.pack filename <> "_*"
+  redisReply <- R.runRedis (rcRedisConn rc) $ R.keys keyPattern
+  case redisReply of
+    Left reply -> do
+      let msg = "redis keys " <> decodeUtf8 keyPattern <> " failed: " <> showt reply
+      errorl rc msg
+      return $ Left msg
+    Right keys -> do
+      if null keys then
+        return $ Right ()
+      else do
+        delReply <- R.runRedis (rcRedisConn rc) $ R.del keys
+        case delReply of
+          Left reply -> do
+            let msg = "redis del " <> decodeUtf8 keyPattern <> " failed: " <> showt reply
+            errorl rc msg
+            return $ Left msg
+          Right deletedCount ->
+            do
+              debugl rc $ "invalidated " <> showt deletedCount <> " redis keys for " <> T.pack filename
+              return $ Right ()
 
 -- | try set file's working status to FileStatusWorking if it has not been set before.
 trySetFileToWorkingStatus :: RDRuntimeConfig -> B.ByteString -> IO (Either T.Text Bool)
@@ -77,14 +108,11 @@ isNewFile rc fbp = do
               then do
                 -- set progress to working
                 warnl rc $ "file sha1 changed, will recalculate block hashes: " <> fn
-                let hashKey = blockSha1sumHashKey fbp
-                redisReply <- R.runRedis (rcRedisConn rc) $ R.del [hashKey]
-                case redisReply of
-                  Left reply -> do
-                    errorl rc $ "invalidate blocks old cache key failed:\n\t" <> showt reply
-                    return $ Left "invalidate blocks old cache key failed"
+                invalidateE <- invalidateFileCaches rc (fbpFilepath fbp)
+                case invalidateE of
+                  Left msg -> return $ Left msg
                   Right _ -> do
-                    infol rc $ "invalidated blocks cache for " <> fn
+                    infol rc $ "invalidated cached keys for " <> fn
                     _ <- DB.set rc (fileSha1Key fbp) currentSha1
                     resultE <- DB.set rc strKey $ fsBytes FileStatusWorking
                     case resultE of
@@ -155,12 +183,12 @@ getRdHandler rc = do
 
   lift $ do
     let fileSizeInByte = toInteger $ fileSize fileStatus
-        blockSizeInByte = 2097152    -- 2MiB
-        blockCount = (fileSizeInByte - 1) `div` blockSizeInByte + 1
-        blocks = genBlocks fileSizeInByte blockSizeInByte
+        bsInByte = blockSizeInByte (rcConfig rc)
+        blockCount = (fileSizeInByte - 1) `div` bsInByte + 1
+        blocks = genBlocks fileSizeInByte bsInByte
         fbp = FillBlockParam { fbpFilepath=absFilePath
                              , fbpFileSize=fileSizeInByte
-                             , fbpBlockSize=blockSizeInByte
+                             , fbpBlockSize=bsInByte
                              , fbpBlocks=blocks }
     resultE <- liftIO $ runExceptT $ processNewFileAsyncMaybe rc fbp
     case resultE of
@@ -175,7 +203,7 @@ getRdHandler rc = do
                           , respMsg=""
                           , respPath=relFilePath
                           , respFilePath=filepath
-                          , respBlockSize="2MiB"
+                          , respBlockSize=blockSizeText bsInByte
                           , respFileSize=fileSizeInByte
                           , respBlockCount=blockCount
                           , respBlocks=blocksWithSha1sum }

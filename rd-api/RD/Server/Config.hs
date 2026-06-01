@@ -19,6 +19,7 @@ data RDConfig = RDConfig {
     , redisHost :: String
     , redisPort :: Int
     , webRoot :: FilePath
+    , blockSizeInByte :: Integer
     , fileWorkerCount :: Int
     , verbose :: Bool
     , showVersion :: Bool } deriving (Show)
@@ -61,6 +62,7 @@ defaultRDConfig = RDConfig {
                   , redisHost = "127.0.0.1"
                   , redisPort = 6379
                   , webRoot = "/nonexistent"
+                  , blockSizeInByte = 2097152
                   , fileWorkerCount = 2
                   , verbose = False
                   , showVersion = False
