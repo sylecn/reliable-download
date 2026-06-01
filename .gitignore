@@ -8,3 +8,4 @@ pypi/rd-api/rdapi/rd-api
 *README.rst
 stack.yaml.lock
 *.whl
+AGENTS.md

@@ -596,14 +596,6 @@ via env var and command line parameter.
 - since build works, now create CI pipeline to build them and upload them to
   pypi. or maybe also host on github releases.
 
-** 2024-03-12 rd-api, if file is already transferred block by block, I can support
-live compress easily. If the client request compress as param such as
-?compress=zstd. default is no compress.
-
-- when the source file is tar/qcow2/raw, not compressed format like
-  squashfs/zip/mkv/mp4, this can speed up transfer by doing real time compress
-  at transfer time.
-
 ** 2024-03-12 rd, add an DL remaining time estimate, based on estimated DL speed.
 each block has a block size. I know when it is started and when it is
 finished. I know how many more blocks to fetch. it should be easy to
@@ -3064,6 +3056,96 @@ I can use haskell fork though.
 yes. see Route Patterns.
 
 * wontfix                                                             :entry:
+** 2024-03-12 rd-api, if file is already transferred block by block, I can support
+live compress easily. If the client request compress as param such as
+?compress=zstd. default is no compress.
+
+- when the source file is tar/qcow2/raw, not compressed format like
+  squashfs/zip/mkv/mp4, this can speed up transfer by doing real time compress
+  at transfer time.
+
+- 2026-06-01
+
+- cdx <plan mode>: in rd-api, when transfer a block, add support for
+  ?compress=zstd parameter.  if compress is not set, default is do not
+  compress (that is the existing behavior).
+
+  when the source file is tar/qcow2/raw, not compressed format like
+  squashfs/zip/mkv/mp4, this can speed up transfer by doing real time compress
+  at transfer time.
+
+  I think HTTP has a header for this, and I don't need to do it at application level.
+
+  In order to support optional block content compress, what should I do?
+  can I just add a hint at rd client options? like "rd --compress zstd URL".
+
+  let's brainstorm before editing code.
+
+- Accept-Encoding / Content-Encoding
+
+- rd-api only serve metadata, a real web server serve the file content.
+  you only need to change client header to hit your web server.
+
+  resp
+  #+begin_src text
+    • Questions 1/1 answered
+      • Where should compression be controlled?
+        answer: Client only (Recommended)
+
+    • Questions 2/2 answered
+      • For `--compress zstd`, how should integrity be validated?
+        answer: Validate decompressed bytes (Recommended)
+      • How should we avoid wasting CPU on already-compressed media files?
+        answer: Manual flag only (Recommended)
+  #+end_src
+
+- cdx: does my static web server support zstd compress?
+
+  wai-middleware-static
+
+  cdx: you mentioned wai-middleware-gzip for gzip support. is there a similar
+  pkg for zstd?
+
+- cdx: zstd is modern and uses very little CPU. but I can accept gzip if I can
+  enable that really easily with existing pkg.
+
+  say if I only need to support "rd --compress gzip URL", what should I do?
+
+- with Range requests, byte ranges are over the encoded representation when
+  Content-Encoding: gzip is applied.
+
+  cdx: Oh, that's not what I want. So I can't use existing
+  Accept-Encoding / Content-Encoding
+  header to do compress/decompress transparently.
+
+  resp
+  #+begin_src text
+    • gzip is not a clean fit for your current block protocol.
+
+      Why:
+
+      - Your client fetches byte ranges per block.
+      - Content-Encoding: gzip changes the representation.
+      - Range offsets/checksums stop matching the raw file bytes you already use.
+
+      So for rd --compress gzip URL, you’d need a protocol change, not just a header:
+
+      - either a new proxy endpoint in rd-api
+      - or no Range/block semantics in gzip mode
+
+      If you want the least-risk path, keep current protocol and don’t add gzip.
+  #+end_src
+
+- OK. to support this, I need to add my own custom header or query parameter.
+
+  I also need to update the static file server to support the header/query param.
+  that's not trivial and gains very little. I will leave this feature request open.
+
+- cdx: in HTTP/2 body can be compressed on the fly on tcp socket, even when
+  there is no gzip related header, am I right?
+
+  // only headers are compressed. body is not.
+
 ** 2024-08-24 try build this project using haskell.nix
 - Getting started with Flakes - Alternative Haskell Infrastructure for Nixpkgs
   https://input-output-hk.github.io/haskell.nix/tutorials/getting-started-flakes.html
