@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2024-08-26>
+Time-stamp: <2026-06-01>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2022-03-14 project dir structure
@@ -626,6 +626,88 @@ policy in ovs can do it.
   see stretch01 daylog.
 
 * done                                                                :entry:
+** 2026-06-01 cdx: rd: found a bug, the log timestamp is a constant. try fix it.
+@rd/RD/Client/Main.hs
+@rd/RD/Client/Logging.hs
+
+cdx: is that a known bug of tinylog library? I think I am using the setFormat correctly.
+
+the code is using my local copy of tinylog
+at ~/projects/tinylog/
+the code is created by me. so the bug is probably introduced by me.
+
+cdx: the tiny log code is at ~/projects/tinylog/, specifically check git
+commit a49750f in that repo
+
+- try build new version for rd client.
+
+** 2026-06-01 since I am making a new release. switch to a maintained lts.
+https://www.stackage.org/
+- cdx: any major language changes from lts-21.25 to latest lts-24.43?
+
+  //looks okay to upgrade.
+- cdx: will I get better compile-time or runtime performance by switching from
+  ghc 9.4.x to ghc-9.10.x?
+
+  //not noticeable.
+- cdx <plan mode>: I want to build with secure and maintained packages. should I use cable
+  or stack to build? how should I update package.yaml file?
+
+  I use ghcup to install haskell toolchain.
+
+  ghcup recommend ghc 9.4.8, cable 3.10.3.0, HLS 2.9.0.1, stack 2.15.7.
+
+  how should I build my project to always use secure and maintained packages?
+
+- well. continue use stackage. but use a system ghc that is supported by ghcup.
+
+- cdx: when run stack I see a warning: Stack has not been tested with GHC
+  versions 9.10 and above, and using 9.10.3, this may fail.
+
+  but lts 24.43 requires ghc 9.10.3. is latest stack not maintained within
+  ghcup tool? I am running stack Version 2.15.7.
+
+  // latest stack is 3.x, not 2.x.
+- is my ghcup mirror configuration wrong? I am using ustc mirror.
+
+  https://mirrors.ustc.edu.cn/help/ghcup.html
+  need to update URL.
+- build tinylog
+  stack build -j6 --test
+
+  build reliable-download
+  withproxy stack build -j6 --test
+- fix compile errors
+  - no need to import liftIO.
+  - /home/sylecn/projects/reliable-download/rd-api/RD/Server/Cli/Main.hs:18:1: error: [GHC-15328] [-Wdeprecations, -Werror=deprecations]
+    Module ‘Text.PrettyPrint.ANSI.Leijen’ is deprecated:
+      "Compatibility module for users of ansi-wl-pprint - use \"Prettyprinter\" instead"
+
+    https://www.stackage.org/lts-24.43/package/prettyprinter-compat-ansi-wl-pprint-1.0.2
+
+    This allows easily transitioning dependent packages from the old to the
+    new package, by simply replacing ansi-wl-pprint with
+    prettyprinter-ansi-terminal in the .cabal file.
+
+    that compatibility module is deprecated. I won't use it.
+  - switch to:
+
+    prettyprinter
+    https://www.stackage.org/haddock/lts-24.43/prettyprinter-1.7.2/Prettyprinter.html
+
+    import qualified Text.PrettyPrint.ANSI.Leijen as D
+  - cdx: help me migrate code from ansi-wl-pprint to prettyprinter. update
+    usage of Text.PrettyPrint.ANSI.Leijen in
+    ~/projects/reliable-download/rd-api/ RD/Server/Cli/Main.hs
+  - code change:
+    -import qualified Text.PrettyPrint.ANSI.Leijen as D
+    +import Prettyprinter (pretty)
+
+    -D.string rdApiDescription
+    +pretty rdApiDescription
+
+    now build okay.
+
 ** 2024-08-24 support HTTP/2 on both server side and client side. or at least support keepalive.
 - http2-client: A native HTTP2 client library.
   https://hackage.haskell.org/package/http2-client

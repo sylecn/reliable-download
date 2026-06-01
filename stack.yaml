@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-21.25
+resolver: lts-24.43
 
 # A package marked 'extra-dep: true' will only be built if demanded by a
 # non-dependency (i.e. a user package), and its test suites and benchmarks
@@ -28,10 +28,8 @@ packages:
 extra-deps:
   - git: https://github.com/sylecn/io-thread-pool.git
     commit: 58041a07560383bac22f6702074242c3e2097106
-    # nix-sha256: 04kj3bfn17mv02bs8ldfa37s52fq2ycqwjcdg4hyns1syy1csw0l
   - git: https://github.com/sylecn/tinylog.git
-    commit: a49750ffb2923d40e834cec77a9900b4167c2ea5
-    # nix-sha256: 1h21xckxd4ls8vinivsh5ibmjpccijc8nhh9zgqxlnvq56x62f7f
+    commit: 880bdfe77ee1b0dd50bc7b0a8b5f77604964293b
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

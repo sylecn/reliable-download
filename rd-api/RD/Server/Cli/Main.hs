@@ -15,7 +15,7 @@ import Options.Applicative
 import Control.Error
 import System.Exit (die)
 import qualified Database.Redis as R
-import qualified Text.PrettyPrint.ANSI.Leijen as D
+import Prettyprinter (pretty)
 
 import RD.Server.Config
 import RD.CliVersion (cliVersion)
@@ -124,4 +124,4 @@ main = do
       opts = info (argParser <**> helper)
                   (  fullDesc
                   <> header "rd-api - reliable download server"
-                  <> progDescDoc (Just $ D.string rdApiDescription))
+                  <> progDescDoc (Just $ pretty rdApiDescription))

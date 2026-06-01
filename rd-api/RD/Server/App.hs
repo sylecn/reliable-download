@@ -1,6 +1,5 @@
 module RD.Server.App (mkApp, mkWaiApp) where
 
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Trans.Class (lift)
 import Data.Either (fromRight)
 import Data.Either.Extra (fromRight')
