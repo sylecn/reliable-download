@@ -20,7 +20,7 @@ http.server``.
 
 In addition, if rd command line tool is used to do the download, it will
 download in a reliable way by downloading in 2MiB blocks (configurable by
---block-size option) and verify checksum for each block.
+``--block-size`` option) and verify checksum for each block.
 
 .. _rd client: https://pypi.org/project/rd/
 
@@ -99,7 +99,7 @@ ChangeLog
 
 * v1.7.0.0 2026-06-02
 
-  - feature: add --block-size option. Now you can set a larger block size when you have good bandwidth with unstable network. Default block size is 2M which is a good balance.
+  - feature: add ``--block-size`` option. Now you can set a larger block size when you have good bandwidth with unstable network. Default block size is 2M which is a good balance.
 
 * v1.6.0.0 2024-04-26
 
@@ -110,7 +110,7 @@ ChangeLog
 
   - bugfix: properly handle unicode string in URL path
   - bugfix: use local time in log messages instead of UTC time
-  - bugfix: fix -d --web-root option. this option was not working before.
+  - bugfix: fix ``-d --web-root`` option. this option was not working before.
 
 * v1.4.0.0 2023-10-18
 
@@ -118,12 +118,12 @@ ChangeLog
 
 * v1.1.3.0 2022-03-14
 
-  - bugfix: revised logging messages. rd-api supports --verbose option. debug msg is not shown by default.
+  - bugfix: revised logging messages. rd-api supports ``--verbose`` option. debug msg is not shown by default.
   - feature: code ported to ghc 8.10.7
 
 * v1.1.0.0 2018-05-10
 
-  - feature: support passing arguments using env variables, for cli arg --redis-host, the env variable will be REDIS_HOST.
+  - feature: support passing arguments using env variables, for cli arg ``--redis-host``, the env variable will be ``REDIS_HOST``.
   - bugfix: fix cli argument parsing for string types
 
 * v1.0.0.3 2018-05-09

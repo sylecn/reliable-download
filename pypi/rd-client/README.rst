@@ -92,7 +92,7 @@ ChangeLog
 
 * v1.2.0.0 2022-03-14
 
-  - feature: add --rolling-combine option. allow combine big file when disk space is low.
+  - feature: add ``--rolling-combine`` option. allow combine big file when disk space is low.
 
 * v1.1.3.0 2022-03-14
 
