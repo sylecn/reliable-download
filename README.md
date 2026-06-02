@@ -31,9 +31,10 @@ Here is the command help:
 $ rd-api --help
 rd-api - reliable download server
 
-Usage: rd-api [-h|--host HOST] [-p|--port PORT] [--redis-host REDIS_HOST] 
-              [--redis-port REDIS_PORT] [-d|--web-root DIR] [-w|--worker INT] 
-              [-v|--verbose] [-V|--version]
+Usage: rd-api [-h|--host HOST] [-p|--port PORT] [--redis-host REDIS_HOST]
+              [--redis-port REDIS_PORT] [-d|--web-root DIR] [--block-size SIZE]
+              [-w|--worker INT] [-v|--verbose] [-V|--version]
+
   rd-api is an HTTP file server that provides static file hosting and reliable
   download api for rd client.
   
@@ -71,6 +72,8 @@ Available options:
   --redis-host REDIS_HOST  redis host (default: "127.0.0.1")
   --redis-port REDIS_PORT  redis port (default: 6379)
   -d,--web-root DIR        web root directory (default: ".")
+  --block-size SIZE        download block size in bytes. use M suffix for MiB,
+                           e.g. 4M (default: 2097152)
   -w,--worker INT          how many concurrent workers to calculator sha1sum for
                            file (default: 2)
   -v,--verbose             show more debug message

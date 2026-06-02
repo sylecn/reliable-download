@@ -1,6 +1,6 @@
 * COMMENT -*- mode: org -*-
 #+Date: 2018-05-04
-Time-stamp: <2026-06-01>
+Time-stamp: <2026-06-02>
 #+STARTUP: content
 * notes                                                               :entry:
 ** 2022-03-14 project dir structure
@@ -537,6 +537,9 @@ via env var and command line parameter.
 
 * current                                                             :entry:
 ** 
+** 2026-06-01 create a new release for 1.7.0.0 on bs03 CT.
+- build okay on bs03 CT.
+- 
 ** 2024-08-24 build rd-api, rd for aarch64 and distributed it on pypi.
 - currently the python pkg is marked works for all arch, which is not correct.
   I should explicitly set one for amd64, one for aarch64.
@@ -3056,6 +3059,47 @@ I can use haskell fork though.
 yes. see Route Patterns.
 
 * wontfix                                                             :entry:
+** 2026-06-01 create a new release for 1.7.0.0 on s02 VM.  //revert. debian 9 stretch is too old for ghcup/cabal.
+- upgrade stack.
+  HTTPS_PROXY=http://192.168.2.8:7890/ stack upgrade
+  reverted. I want to install ghc with ghcup. not compile from source.
+  rm -rf ~/.stack
+- install ghc 9.10.3 with ghcup.
+
+  dpkg -l build-essential curl libffi-dev libffi8 libgmp-dev libgmp10 libncurses-dev libncurses6 libtinfo6 pkg-config
+
+- it installs 9.6.7, which is used to run ghcup itself.
+- problems
+  - cable requires GLIBC_2.27 or later.
+    #+begin_src sh
+      [ Info  ] Unpacking: cabal-install-3.14.2.0-x86_64-linux-deb12.tar.xz to /home/sylecn/.ghcup/tmp/ghcup-714ef4af15489cb3
+      [ Info  ] Installing cabal
+      [ Info  ] cabal installation successful
+      cabal: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.34' not found (required by cabal)
+      cabal: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.27' not found (required by cabal)
+      cabal: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.33' not found (required by cabal)
+      cabal: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.32' not found (required by cabal)
+      cabal: /lib/x86_64-linux-gnu/libc.so.6: version `GLIBC_2.28' not found (required by cabal)
+      cabal: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.27' not found (required by cabal)
+      cabal: /lib/x86_64-linux-gnu/libm.so.6: version `GLIBC_2.29' not found (required by cabal)
+      "cabal user-config update -a repository mirrors.ustc.edu.cn -a   url: https://mirrors.ustc.edu.cn/hackage/" failed!
+    #+end_src
+
+    ghcup pre-built cabal binary runs on debian 12 bookworm.
+
+    gemini: what libc version does ghcup pre-built cabal binary require?
+
+    try:
+    deb10 buster
+    deb11 bullseye
+    deb12 bookworm
+
+    deb9 is way too old.
+    I will try deb11.
+
+    build on bs02 VM or LXC container.
+  - 
+
 ** 2024-03-12 rd-api, if file is already transferred block by block, I can support
 live compress easily. If the client request compress as param such as
 ?compress=zstd. default is no compress.

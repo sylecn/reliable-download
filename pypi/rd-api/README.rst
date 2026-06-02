@@ -19,8 +19,8 @@ rd-api serves files under web-root. You can use it like ``python3 -m
 http.server``.
 
 In addition, if rd command line tool is used to do the download, it will
-download in a reliable way by downloading in 2MiB blocks and verify checksum
-for each block.
+download in a reliable way by downloading in 2MiB blocks (configurable by
+--block-size option) and verify checksum for each block.
 
 .. _rd client: https://pypi.org/project/rd/
 
@@ -96,6 +96,10 @@ https://gitlab.emacsos.com/sylecn/reliable-download
 
 ChangeLog
 ---------
+
+* v1.7.0.0 2026-06-02
+
+  - feature: add --block-size option. Now you can set a larger block size when you have good bandwidth with unstable network. Default block size is 2M which is a good balance.
 
 * v1.6.0.0 2024-04-26
 

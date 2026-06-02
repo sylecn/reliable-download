@@ -72,6 +72,10 @@ https://gitlab.emacsos.com/sylecn/reliable-download
 ChangeLog
 ---------
 
+* v1.7.0.0 2026-06-02
+
+  - bugfix: fix log message timestamp is static issue.
+
 * v1.6.0.0 2024-04-26
 
   - bugfix: don't print no block fetched in last N seconds when all blocks are fetched.

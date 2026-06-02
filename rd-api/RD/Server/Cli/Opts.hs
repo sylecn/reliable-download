@@ -53,7 +53,7 @@ argParser = RDConfig
       <> metavar "DIR" )
   <*> option parseBlockSize
       (  long "block-size"
-      <> help "download block size, supports MiB suffix, e.g. 2M, 4M, 8M. default is 2M."
+      <> help "download block size in bytes. use M suffix for MiB, e.g. 4M"
       <> showDefault
       <> value 2097152
       <> metavar "SIZE" )
